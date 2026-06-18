@@ -3,9 +3,19 @@ import { invoke } from "@tauri-apps/api/core";
 import { usePlaylistStore } from "@/stores/playlist";
 import type { Playlist } from "@/stores/playlist";
 
-export function useActions() {
+interface ActionOptions {
+  onFileOpened?: (path: string) => void;
+}
+
+export function useActions(opts?: ActionOptions) {
   const { filePath, tracks, setPlaylist, addTrack, markClean, undo, redo } =
     usePlaylistStore();
+
+  async function openFile(path: string) {
+    const playlist = await invoke<Playlist>("open_playlist", { path });
+    setPlaylist(path, playlist);
+    opts?.onFileOpened?.(path);
+  }
 
   async function handleOpen() {
     const { isDirty } = usePlaylistStore.getState();
@@ -21,10 +31,19 @@ export function useActions() {
       filters: [{ name: "M3U Playlist", extensions: ["m3u", "m3u8"] }],
     });
     if (!selected) return;
-    const playlist = await invoke<Playlist>("open_playlist", {
-      path: selected,
-    });
-    setPlaylist(selected, playlist);
+    await openFile(selected);
+  }
+
+  async function handleOpenRecent(path: string) {
+    const { isDirty } = usePlaylistStore.getState();
+    if (isDirty) {
+      const confirmed = await ask(
+        "Unsaved changes will be lost. Continue?",
+        { title: "Open Playlist", kind: "warning" },
+      );
+      if (!confirmed) return;
+    }
+    await openFile(path);
   }
 
   async function handleSave() {
@@ -43,6 +62,7 @@ export function useActions() {
     if (!selected) return;
     await invoke("save_playlist", { path: selected, playlist: { tracks } });
     setPlaylist(selected, { tracks });
+    opts?.onFileOpened?.(selected);
   }
 
   function handleAddEmptyTrack() {
@@ -83,5 +103,15 @@ export function useActions() {
     usePlaylistStore.getState().clear();
   }
 
-  return { handleOpen, handleSave, handleSaveAs, handleAddEmptyTrack, handleAddFiles, handleNew, undo, redo };
+  return {
+    handleOpen,
+    handleOpenRecent,
+    handleSave,
+    handleSaveAs,
+    handleAddEmptyTrack,
+    handleAddFiles,
+    handleNew,
+    undo,
+    redo,
+  };
 }

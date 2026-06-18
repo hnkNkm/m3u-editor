@@ -3,9 +3,11 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { usePlaylistStore } from "@/stores/playlist";
 import type { Playlist } from "@/stores/playlist";
+import { useRecentFiles } from "@/hooks/use-recent-files";
 
 export function useFileDrop() {
   const setPlaylist = usePlaylistStore((s) => s.setPlaylist);
+  const { addRecentFile } = useRecentFiles();
 
   useEffect(() => {
     const unlisten = getCurrentWebviewWindow().onDragDropEvent(async (event) => {
@@ -19,11 +21,12 @@ export function useFileDrop() {
           path: m3uFile,
         });
         setPlaylist(m3uFile, playlist);
+        addRecentFile(m3uFile);
       }
     });
 
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [setPlaylist]);
+  }, [setPlaylist, addRecentFile]);
 }
