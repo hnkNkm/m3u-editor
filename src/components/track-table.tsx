@@ -162,7 +162,7 @@ function SortableRow({
           type="checkbox"
           checked={selected}
           onChange={(e) => onSelect(index, e.nativeEvent instanceof MouseEvent && (e.nativeEvent as MouseEvent).shiftKey)}
-          className="h-3.5 w-3.5 cursor-pointer accent-primary"
+          className="track-check"
         />
       </TableCell>
       <TableCell className="text-center text-muted-foreground w-12">
@@ -424,7 +424,7 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, onSaveSelect
                       if (el) el.indeterminate = someSelected && !allSelected;
                     }}
                     onChange={handleSelectAll}
-                    className="h-3.5 w-3.5 cursor-pointer accent-primary"
+                    className="track-check"
                   />
                 </TableHead>
                 <TableHead className="w-12 text-center">#</TableHead>
