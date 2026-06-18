@@ -1,3 +1,4 @@
+import { useRef, useCallback } from "react";
 import { open, save, ask } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { usePlaylistStore } from "@/stores/playlist";
@@ -15,16 +16,19 @@ interface ActionOptions {
 }
 
 export function useActions(opts?: ActionOptions) {
-  const { filePath, tracks, setPlaylist, addTrack, markClean, undo, redo } =
-    usePlaylistStore();
+  const optsRef = useRef(opts);
+  optsRef.current = opts;
 
-  async function openFile(path: string) {
+  const undo = usePlaylistStore((s) => s.undo);
+  const redo = usePlaylistStore((s) => s.redo);
+
+  const openFile = useCallback(async (path: string) => {
     const playlist = await invoke<Playlist>("open_playlist", { path });
-    setPlaylist(path, playlist);
-    opts?.onFileOpened?.(path);
-  }
+    usePlaylistStore.getState().setPlaylist(path, playlist);
+    optsRef.current?.onFileOpened?.(path);
+  }, []);
 
-  async function handleOpen() {
+  const handleOpen = useCallback(async () => {
     const { isDirty } = usePlaylistStore.getState();
     if (isDirty) {
       const confirmed = await ask(
@@ -39,9 +43,9 @@ export function useActions(opts?: ActionOptions) {
     });
     if (!selected) return;
     await openFile(selected);
-  }
+  }, [openFile]);
 
-  async function handleOpenRecent(path: string) {
+  const handleOpenRecent = useCallback(async (path: string) => {
     const { isDirty } = usePlaylistStore.getState();
     if (isDirty) {
       const confirmed = await ask(
@@ -51,22 +55,10 @@ export function useActions(opts?: ActionOptions) {
       if (!confirmed) return;
     }
     await openFile(path);
-  }
+  }, [openFile]);
 
-  async function handleSave() {
-    if (!filePath) {
-      handleSaveAs();
-      return;
-    }
-    await invoke("save_playlist", {
-      path: filePath,
-      playlist: { tracks },
-      useRelative: opts?.useRelative ?? false,
-    });
-    markClean();
-  }
-
-  async function handleSaveAs() {
+  const handleSaveAs = useCallback(async () => {
+    const { tracks, setPlaylist } = usePlaylistStore.getState();
     const selected = await save({
       filters: [{ name: "M3U Playlist", extensions: ["m3u", "m3u8"] }],
     });
@@ -74,17 +66,31 @@ export function useActions(opts?: ActionOptions) {
     await invoke("save_playlist", {
       path: selected,
       playlist: { tracks },
-      useRelative: opts?.useRelative ?? false,
+      useRelative: optsRef.current?.useRelative ?? false,
     });
     setPlaylist(selected, { tracks });
-    opts?.onFileOpened?.(selected);
-  }
+    optsRef.current?.onFileOpened?.(selected);
+  }, []);
 
-  function handleAddEmptyTrack() {
-    addTrack({ path: "", title: null, artist: null, duration: null });
-  }
+  const handleSave = useCallback(async () => {
+    const { filePath, tracks, markClean } = usePlaylistStore.getState();
+    if (!filePath) {
+      handleSaveAs();
+      return;
+    }
+    await invoke("save_playlist", {
+      path: filePath,
+      playlist: { tracks },
+      useRelative: optsRef.current?.useRelative ?? false,
+    });
+    markClean();
+  }, [handleSaveAs]);
 
-  async function handleAddFiles() {
+  const handleAddEmptyTrack = useCallback(() => {
+    usePlaylistStore.getState().addTrack({ path: "", title: null, artist: null, duration: null });
+  }, []);
+
+  const handleAddFiles = useCallback(async () => {
     const selected = await open({
       multiple: true,
       filters: [
@@ -102,9 +108,9 @@ export function useActions(opts?: ActionOptions) {
     if (audioFiles.length > 0) {
       usePlaylistStore.getState().addTracks(audioFiles.map(pathToTrack));
     }
-  }
+  }, []);
 
-  async function handleAddFolder() {
+  const handleAddFolder = useCallback(async () => {
     const selected = await open({ directory: true, multiple: true });
     if (!selected) return;
     const paths = Array.isArray(selected) ? selected : [selected];
@@ -112,10 +118,10 @@ export function useActions(opts?: ActionOptions) {
     if (audioFiles.length > 0) {
       usePlaylistStore.getState().addTracks(audioFiles.map(pathToTrack));
     }
-  }
+  }, []);
 
-  async function handleNew() {
-    const { isDirty } = usePlaylistStore.getState();
+  const handleNew = useCallback(async () => {
+    const { isDirty, clear } = usePlaylistStore.getState();
     if (isDirty) {
       const confirmed = await ask(
         "Unsaved changes will be lost. Continue?",
@@ -123,10 +129,11 @@ export function useActions(opts?: ActionOptions) {
       );
       if (!confirmed) return;
     }
-    usePlaylistStore.getState().clear();
-  }
+    clear();
+  }, []);
 
-  async function handleSaveSelected(indices: number[]) {
+  const handleSaveSelected = useCallback(async (indices: number[]) => {
+    const { tracks } = usePlaylistStore.getState();
     const selectedTracks = indices.map((i) => tracks[i]);
     const selected = await save({
       filters: [{ name: "M3U Playlist", extensions: ["m3u", "m3u8"] }],
@@ -135,9 +142,9 @@ export function useActions(opts?: ActionOptions) {
     await invoke("save_playlist", {
       path: selected,
       playlist: { tracks: selectedTracks },
-      useRelative: opts?.useRelative ?? false,
+      useRelative: optsRef.current?.useRelative ?? false,
     });
-  }
+  }, []);
 
   return {
     handleOpen,
@@ -153,3 +160,4 @@ export function useActions(opts?: ActionOptions) {
     redo,
   };
 }
+

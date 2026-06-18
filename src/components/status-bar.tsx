@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { usePlaylistStore } from "@/stores/playlist";
 
 function formatTotalDuration(seconds: number): string {
@@ -17,10 +18,12 @@ interface StatusBarProps {
 export function StatusBar({ useRelative, onTogglePathMode }: StatusBarProps) {
   const tracks = usePlaylistStore((s) => s.tracks);
 
-  const totalDuration = tracks.reduce(
-    (sum, t) => sum + (t.duration != null && t.duration >= 0 ? t.duration : 0),
-    0,
-  );
+  const totalDuration = useMemo(() => {
+    return tracks.reduce(
+      (sum, t) => sum + (t.duration != null && t.duration >= 0 ? t.duration : 0),
+      0,
+    );
+  }, [tracks]);
 
   return (
     <footer className="flex h-7 items-center justify-between border-t px-4 text-xs text-muted-foreground">

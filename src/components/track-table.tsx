@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 import { Trash2, GripVertical, ArrowUp, ArrowDown, Copy, ClipboardPaste, ArrowUpToLine, ArrowDownToLine, Save } from "lucide-react";
 import {
   DndContext,
@@ -99,116 +99,128 @@ function EditableCell({
   );
 }
 
-function SortableRow({
-  track,
-  index,
-  selected,
-  duplicate,
-  missing,
-  onSelect,
-  onUpdate,
-  onRemove,
-  onContextMenu,
-  id,
-}: {
-  track: Track;
-  index: number;
-  selected: boolean;
-  duplicate: boolean;
-  missing: boolean;
-  onSelect: (index: number, shiftKey: boolean) => void;
-  onUpdate: (index: number, field: keyof Track, value: string) => void;
-  onRemove: (index: number) => void;
-  onContextMenu: (index: number, x: number, y: number) => void;
-  id: string;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
+const SortableRow = memo(
+  function SortableRow({
+    track,
+    index,
+    selected,
+    duplicate,
+    missing,
+    onSelect,
+    onUpdate,
+    onRemove,
+    onContextMenu,
+    id,
+  }: {
+    track: Track;
+    index: number;
+    selected: boolean;
+    duplicate: boolean;
+    missing: boolean;
+    onSelect: (index: number, shiftKey: boolean) => void;
+    onUpdate: (index: number, field: keyof Track, value: string) => void;
+    onRemove: (index: number) => void;
+    onContextMenu: (index: number, x: number, y: number) => void;
+    id: string;
+  }) {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
 
-  return (
-    <TableRow
-      ref={setNodeRef}
-      style={style}
-      data-selected={selected || undefined}
-      className={duplicate ? "bg-warning/10" : undefined}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        onContextMenu(index, e.clientX, e.clientY);
-      }}
-    >
-      <TableCell className="px-1 w-8">
-        <button
-          className="cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:bg-muted active:cursor-grabbing"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
-      </TableCell>
-      <TableCell className="px-1 w-8">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={(e) => onSelect(index, e.nativeEvent instanceof MouseEvent && (e.nativeEvent as MouseEvent).shiftKey)}
-          className="track-check"
-        />
-      </TableCell>
-      <TableCell className="text-center text-muted-foreground w-12">
-        {index + 1}
-      </TableCell>
-      <TableCell>
-        <EditableCell
-          value={track.title ?? ""}
-          onCommit={(v) => onUpdate(index, "title", v)}
-        />
-      </TableCell>
-      <TableCell>
-        <EditableCell
-          value={track.artist ?? ""}
-          onCommit={(v) => onUpdate(index, "artist", v)}
-        />
-      </TableCell>
-      <TableCell className="text-right w-24">
-        <EditableCell
-          value={formatDuration(track.duration)}
-          onCommit={(v) => onUpdate(index, "duration", v)}
-          className="text-right"
-        />
-      </TableCell>
-      <TableCell>
-        <EditableCell
-          value={track.path}
-          onCommit={(v) => onUpdate(index, "path", v)}
-          className={missing ? "text-destructive text-sm" : "text-muted-foreground text-sm"}
-        />
-        {missing && (
-          <span className="text-[10px] text-destructive">File not found</span>
-        )}
-      </TableCell>
-      <TableCell className="px-1 w-10">
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={() => onRemove(index)}
-        >
-          <Trash2 className="h-3 w-3 text-destructive" />
-        </Button>
-      </TableCell>
-    </TableRow>
-  );
-}
+    return (
+      <TableRow
+        ref={setNodeRef}
+        style={style}
+        data-selected={selected || undefined}
+        className={duplicate ? "bg-warning/10" : undefined}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onContextMenu(index, e.clientX, e.clientY);
+        }}
+      >
+        <TableCell className="px-1 w-8">
+          <button
+            className="cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        </TableCell>
+        <TableCell className="px-1 w-8">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={(e) => onSelect(index, e.nativeEvent instanceof MouseEvent && (e.nativeEvent as MouseEvent).shiftKey)}
+            className="track-check"
+          />
+        </TableCell>
+        <TableCell className="text-center text-muted-foreground w-12">
+          {index + 1}
+        </TableCell>
+        <TableCell>
+          <EditableCell
+            value={track.title ?? ""}
+            onCommit={(v) => onUpdate(index, "title", v)}
+          />
+        </TableCell>
+        <TableCell>
+          <EditableCell
+            value={track.artist ?? ""}
+            onCommit={(v) => onUpdate(index, "artist", v)}
+          />
+        </TableCell>
+        <TableCell className="text-right w-24">
+          <EditableCell
+            value={formatDuration(track.duration)}
+            onCommit={(v) => onUpdate(index, "duration", v)}
+            className="text-right"
+          />
+        </TableCell>
+        <TableCell>
+          <EditableCell
+            value={track.path}
+            onCommit={(v) => onUpdate(index, "path", v)}
+            className={missing ? "text-destructive text-sm" : "text-muted-foreground text-sm"}
+          />
+          {missing && (
+            <span className="text-[10px] text-destructive">File not found</span>
+          )}
+        </TableCell>
+        <TableCell className="px-1 w-10">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => onRemove(index)}
+          >
+            <Trash2 className="h-3 w-3 text-destructive" />
+          </Button>
+        </TableCell>
+      </TableRow>
+    );
+  },
+  (prev, next) =>
+    prev.index === next.index &&
+    prev.selected === next.selected &&
+    prev.duplicate === next.duplicate &&
+    prev.missing === next.missing &&
+    prev.id === next.id &&
+    prev.track.path === next.track.path &&
+    prev.track.title === next.track.title &&
+    prev.track.artist === next.track.artist &&
+    prev.track.duration === next.track.duration
+);
 
 interface TrackTableProps {
   tracks: Track[];
@@ -262,13 +274,17 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, onSaveSelect
   const [ctxMenu, setCtxMenu] = useState<{ index: number; x: number; y: number } | null>(null);
   const ctxRef = useRef<HTMLDivElement>(null);
 
-  function handleSort(key: SortKey) {
-    const newDir = sortKey === key && sortDir === "asc" ? "desc" : "asc";
-    setSortKey(key);
-    setSortDir(newDir);
-    sortTracks(key, newDir);
+  const handleSort = useCallback((key: SortKey) => {
+    setSortKey((prevKey) => {
+      setSortDir((prevDir) => {
+        const newDir = prevKey === key && prevDir === "asc" ? "desc" : "asc";
+        sortTracks(key, newDir);
+        return newDir;
+      });
+      return key;
+    });
     setSelection(new Set());
-  }
+  }, [sortTracks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -277,9 +293,15 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, onSaveSelect
     }),
   );
 
-  const ids = tracks.map((_, i) => `track-${i}`);
+  const ids = useMemo(() => tracks.map((_, i) => `track-${i}`), [tracks]);
 
-  const visibleIndices = filteredIndices ?? tracks.map((_, i) => i);
+  const visibleIndices = useMemo(() => {
+    return filteredIndices ?? tracks.map((_, i) => i);
+  }, [filteredIndices, tracks]);
+
+  const visibleIndicesSet = useMemo(() => {
+    return new Set(visibleIndices);
+  }, [visibleIndices]);
 
   const handleSelect = useCallback(
     (index: number, shiftKey: boolean) => {
@@ -289,7 +311,7 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, onSaveSelect
           const start = Math.min(lastSelected, index);
           const end = Math.max(lastSelected, index);
           for (let i = start; i <= end; i++) {
-            if (!isFiltering || visibleIndices.includes(i)) {
+            if (!isFiltering || visibleIndicesSet.has(i)) {
               next.add(i);
             }
           }
@@ -302,46 +324,52 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, onSaveSelect
       });
       setLastSelected(index);
     },
-    [lastSelected, isFiltering, visibleIndices],
+    [lastSelected, isFiltering, visibleIndicesSet],
   );
 
-  function handleSelectAll() {
-    if (selection.size === visibleIndices.length) {
-      setSelection(new Set());
-    } else {
-      setSelection(new Set(visibleIndices));
-    }
-  }
+  const handleSelectAll = useCallback(() => {
+    setSelection((prev) => {
+      if (prev.size === visibleIndices.length) {
+        return new Set();
+      } else {
+        return new Set(visibleIndices);
+      }
+    });
+  }, [visibleIndices]);
 
-  function handleDeleteSelected() {
-    const indices = Array.from(selection).sort((a, b) => b - a);
-    if (indices.length === 0) return;
-    removeTracks(indices);
-    setSelection(new Set());
+  const handleDeleteSelected = useCallback(() => {
+    setSelection((prev) => {
+      const indices = Array.from(prev).sort((a, b) => b - a);
+      if (indices.length > 0) {
+        removeTracks(indices);
+      }
+      return new Set();
+    });
     setLastSelected(null);
-  }
+  }, [removeTracks]);
 
-  function handleDragEnd(event: DragEndEvent) {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const from = ids.indexOf(active.id as string);
     const to = ids.indexOf(over.id as string);
     if (from !== -1 && to !== -1) moveTrack(from, to);
-  }
+  }, [ids, moveTrack]);
 
-  function handleUpdate(index: number, field: keyof Track, value: string) {
-    const track = { ...tracks[index] };
+  const handleUpdate = useCallback((index: number, field: keyof Track, value: string) => {
+    const currentTracks = usePlaylistStore.getState().tracks;
+    const track = { ...currentTracks[index] };
     if (field === "duration") {
       track.duration = parseDuration(value);
     } else {
       (track[field] as string | null) = value || null;
     }
     updateTrack(index, track);
-  }
+  }, [updateTrack]);
 
-  function handleContextMenu(index: number, x: number, y: number) {
+  const handleContextMenu = useCallback((index: number, x: number, y: number) => {
     setCtxMenu({ index, x, y });
-  }
+  }, []);
 
   useEffect(() => {
     if (!ctxMenu) return;
@@ -361,16 +389,18 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, onSaveSelect
     };
   }, [ctxMenu]);
 
-  function ctxAction(fn: () => void) {
+  const ctxAction = useCallback((fn: () => void) => {
     fn();
     setCtxMenu(null);
-  }
+  }, []);
 
+  const tracksPathsSerialized = JSON.stringify(tracks.map((t) => t.path));
   const duplicateIndices = useMemo(() => {
+    const paths: string[] = JSON.parse(tracksPathsSerialized);
     const pathCount = new Map<string, number[]>();
-    tracks.forEach((t, i) => {
-      if (!t.path) return;
-      const key = t.path.toLowerCase();
+    paths.forEach((path, i) => {
+      if (!path) return;
+      const key = path.toLowerCase();
       const list = pathCount.get(key);
       if (list) list.push(i);
       else pathCount.set(key, [i]);
@@ -380,7 +410,7 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, onSaveSelect
       if (indices.length > 1) indices.forEach((i) => dupes.add(i));
     }
     return dupes;
-  }, [tracks]);
+  }, [tracksPathsSerialized]);
 
   const allSelected = visibleIndices.length > 0 && selection.size === visibleIndices.length;
   const someSelected = selection.size > 0;

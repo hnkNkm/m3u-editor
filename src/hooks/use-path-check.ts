@@ -5,8 +5,11 @@ import type { Track } from "@/stores/playlist";
 export function usePathCheck(tracks: Track[]) {
   const [missingPaths, setMissingPaths] = useState<Set<number>>(new Set());
 
+  // Extract paths and serialize them to create a stable dependency
+  const pathsSerialized = JSON.stringify(tracks.map((t) => t.path));
+
   useEffect(() => {
-    const paths = tracks.map((t) => t.path);
+    const paths: string[] = JSON.parse(pathsSerialized);
     const nonEmpty = paths.some((p) => p.length > 0);
     if (!nonEmpty) {
       setMissingPaths(new Set());
@@ -20,7 +23,7 @@ export function usePathCheck(tracks: Track[]) {
       });
       setMissingPaths(missing);
     });
-  }, [tracks]);
+  }, [pathsSerialized]);
 
   return missingPaths;
 }

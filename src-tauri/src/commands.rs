@@ -1,6 +1,16 @@
 use crate::m3u::{self, Playlist, Track};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+fn clean_canonicalize(path: &Path) -> Option<PathBuf> {
+    let abs = fs::canonicalize(path).ok()?;
+    let s = abs.to_string_lossy();
+    if s.starts_with(r"\\?\") {
+        Some(PathBuf::from(&s[4..]))
+    } else {
+        Some(abs)
+    }
+}
 
 #[tauri::command]
 pub fn open_playlist(path: String) -> Result<Playlist, String> {
@@ -11,7 +21,7 @@ pub fn open_playlist(path: String) -> Result<Playlist, String> {
         for track in &mut playlist.tracks {
             let track_path = Path::new(&track.path);
             if track_path.is_relative() {
-                if let Ok(abs) = fs::canonicalize(base.join(track_path)) {
+                if let Some(abs) = clean_canonicalize(&base.join(track_path)) {
                     track.path = abs.to_string_lossy().to_string();
                 }
             }
@@ -75,7 +85,7 @@ pub fn scan_audio_files(paths: Vec<String>) -> Vec<String> {
         if path.is_dir() {
             collect_audio_recursive(path, &mut results);
         } else if path.is_file() && is_audio_file(path) {
-            if let Ok(abs) = fs::canonicalize(path) {
+            if let Some(abs) = clean_canonicalize(path) {
                 results.push(abs.to_string_lossy().to_string());
             }
         }
@@ -91,7 +101,7 @@ fn collect_audio_recursive(dir: &Path, results: &mut Vec<String>) {
         if path.is_dir() {
             collect_audio_recursive(&path, results);
         } else if is_audio_file(&path) {
-            if let Ok(abs) = fs::canonicalize(&path) {
+            if let Some(abs) = clean_canonicalize(&path) {
                 results.push(abs.to_string_lossy().to_string());
             }
         }

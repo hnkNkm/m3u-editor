@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 type Theme = "light" | "dark" | "system";
 
@@ -31,7 +31,7 @@ export function useTheme() {
     return () => mq.removeEventListener("change", handler);
   }, [theme]);
 
-  const setTheme = (t: Theme) => setThemeState(t);
+  const setTheme = useCallback((t: Theme) => setThemeState(t), []);
 
   return { theme, setTheme } as const;
 }
