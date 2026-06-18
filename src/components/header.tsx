@@ -1,52 +1,23 @@
-import { open, save } from "@tauri-apps/plugin-dialog";
-import { invoke } from "@tauri-apps/api/core";
-import { FolderOpen, Save, SaveAll, Plus } from "lucide-react";
+import { FolderOpen, Save, SaveAll, Plus, FilePlus, Undo2, Redo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { usePlaylistStore } from "@/stores/playlist";
-import type { Playlist } from "@/stores/playlist";
+import { useActions } from "@/hooks/use-actions";
 
 export function Header() {
-  const { filePath, tracks, isDirty, setPlaylist, addTrack, markClean } =
-    usePlaylistStore();
-
-  async function handleOpen() {
-    const selected = await open({
-      multiple: false,
-      filters: [{ name: "M3U Playlist", extensions: ["m3u", "m3u8"] }],
-    });
-    if (!selected) return;
-    const playlist = await invoke<Playlist>("open_playlist", {
-      path: selected,
-    });
-    setPlaylist(selected, playlist);
-  }
-
-  async function handleSave() {
-    if (!filePath) {
-      handleSaveAs();
-      return;
-    }
-    await invoke("save_playlist", { path: filePath, playlist: { tracks } });
-    markClean();
-  }
-
-  async function handleSaveAs() {
-    const selected = await save({
-      filters: [{ name: "M3U Playlist", extensions: ["m3u", "m3u8"] }],
-    });
-    if (!selected) return;
-    await invoke("save_playlist", { path: selected, playlist: { tracks } });
-    setPlaylist(selected, { tracks });
-  }
-
-  function handleAddTrack() {
-    addTrack({ path: "", title: null, artist: null, duration: null });
-  }
+  const { filePath, tracks, isDirty } = usePlaylistStore();
+  const canUndo = usePlaylistStore((s) => s.canUndo());
+  const canRedo = usePlaylistStore((s) => s.canRedo());
+  const { handleOpen, handleSave, handleSaveAs, handleAddTrack, handleNew, undo, redo } =
+    useActions();
 
   return (
     <header className="flex h-12 items-center gap-1 border-b px-3">
+      <Button variant="ghost" size="sm" onClick={handleNew}>
+        <FilePlus className="mr-1.5 h-4 w-4" />
+        New
+      </Button>
       <Button variant="ghost" size="sm" onClick={handleOpen}>
         <FolderOpen className="mr-1.5 h-4 w-4" />
         Open
@@ -68,6 +39,13 @@ export function Header() {
       >
         <SaveAll className="mr-1.5 h-4 w-4" />
         Save As
+      </Button>
+      <Separator orientation="vertical" className="mx-1 h-6" />
+      <Button variant="ghost" size="icon-sm" onClick={undo} disabled={!canUndo}>
+        <Undo2 className="h-4 w-4" />
+      </Button>
+      <Button variant="ghost" size="icon-sm" onClick={redo} disabled={!canRedo}>
+        <Redo2 className="h-4 w-4" />
       </Button>
       <Separator orientation="vertical" className="mx-1 h-6" />
       <Button variant="ghost" size="sm" onClick={handleAddTrack}>

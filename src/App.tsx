@@ -7,11 +7,13 @@ import { SearchBar } from "@/components/search-bar";
 import { StatusBar } from "@/components/status-bar";
 import { usePlaylistStore } from "@/stores/playlist";
 import { useFileDrop } from "@/hooks/use-file-drop";
+import { useShortcuts } from "@/hooks/use-shortcuts";
 
 function App() {
   const tracks = usePlaylistStore((s) => s.tracks);
   const [search, setSearch] = useState("");
   useFileDrop();
+  useShortcuts();
 
   const filteredIndices = useMemo(() => {
     if (!search.trim()) return null;
