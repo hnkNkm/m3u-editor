@@ -1,4 +1,4 @@
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { open, save, ask } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { usePlaylistStore } from "@/stores/playlist";
 import type { Playlist } from "@/stores/playlist";
@@ -8,6 +8,14 @@ export function useActions() {
     usePlaylistStore();
 
   async function handleOpen() {
+    const { isDirty } = usePlaylistStore.getState();
+    if (isDirty) {
+      const confirmed = await ask(
+        "Unsaved changes will be lost. Continue?",
+        { title: "Open Playlist", kind: "warning" },
+      );
+      if (!confirmed) return;
+    }
     const selected = await open({
       multiple: false,
       filters: [{ name: "M3U Playlist", extensions: ["m3u", "m3u8"] }],
@@ -41,7 +49,15 @@ export function useActions() {
     addTrack({ path: "", title: null, artist: null, duration: null });
   }
 
-  function handleNew() {
+  async function handleNew() {
+    const { isDirty } = usePlaylistStore.getState();
+    if (isDirty) {
+      const confirmed = await ask(
+        "Unsaved changes will be lost. Continue?",
+        { title: "New Playlist", kind: "warning" },
+      );
+      if (!confirmed) return;
+    }
     usePlaylistStore.getState().clear();
   }
 

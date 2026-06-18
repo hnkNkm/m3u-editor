@@ -8,12 +8,14 @@ import { StatusBar } from "@/components/status-bar";
 import { usePlaylistStore } from "@/stores/playlist";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useShortcuts } from "@/hooks/use-shortcuts";
+import { useCloseGuard } from "@/hooks/use-close-guard";
 
 function App() {
   const tracks = usePlaylistStore((s) => s.tracks);
   const [search, setSearch] = useState("");
   useFileDrop();
   useShortcuts();
+  useCloseGuard();
 
   const filteredIndices = useMemo(() => {
     if (!search.trim()) return null;
