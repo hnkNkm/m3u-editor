@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Trash2, GripVertical } from "lucide-react";
 import {
   DndContext,
@@ -102,12 +102,16 @@ function EditableCell({
 function SortableRow({
   track,
   index,
+  selected,
+  onSelect,
   onUpdate,
   onRemove,
   id,
 }: {
   track: Track;
   index: number;
+  selected: boolean;
+  onSelect: (index: number, shiftKey: boolean) => void;
   onUpdate: (index: number, field: keyof Track, value: string) => void;
   onRemove: (index: number) => void;
   id: string;
@@ -128,7 +132,7 @@ function SortableRow({
   };
 
   return (
-    <TableRow ref={setNodeRef} style={style}>
+    <TableRow ref={setNodeRef} style={style} data-selected={selected || undefined}>
       <TableCell className="px-1 w-8">
         <button
           className="cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:bg-muted active:cursor-grabbing"
@@ -137,6 +141,14 @@ function SortableRow({
         >
           <GripVertical className="h-4 w-4" />
         </button>
+      </TableCell>
+      <TableCell className="px-1 w-8">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={(e) => onSelect(index, e.nativeEvent instanceof MouseEvent && (e.nativeEvent as MouseEvent).shiftKey)}
+          className="h-3.5 w-3.5 cursor-pointer accent-primary"
+        />
       </TableCell>
       <TableCell className="text-center text-muted-foreground w-12">
         {index + 1}
@@ -186,8 +198,10 @@ interface TrackTableProps {
 }
 
 export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
-  const { updateTrack, removeTrack, moveTrack } = usePlaylistStore();
+  const { updateTrack, removeTrack, removeTracks, moveTrack } = usePlaylistStore();
   const isFiltering = filteredIndices !== null;
+  const [selection, setSelection] = useState<Set<number>>(new Set());
+  const [lastSelected, setLastSelected] = useState<number | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -197,6 +211,48 @@ export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
   );
 
   const ids = tracks.map((_, i) => `track-${i}`);
+
+  const visibleIndices = filteredIndices ?? tracks.map((_, i) => i);
+
+  const handleSelect = useCallback(
+    (index: number, shiftKey: boolean) => {
+      setSelection((prev) => {
+        const next = new Set(prev);
+        if (shiftKey && lastSelected !== null) {
+          const start = Math.min(lastSelected, index);
+          const end = Math.max(lastSelected, index);
+          for (let i = start; i <= end; i++) {
+            if (!isFiltering || visibleIndices.includes(i)) {
+              next.add(i);
+            }
+          }
+        } else if (next.has(index)) {
+          next.delete(index);
+        } else {
+          next.add(index);
+        }
+        return next;
+      });
+      setLastSelected(index);
+    },
+    [lastSelected, isFiltering, visibleIndices],
+  );
+
+  function handleSelectAll() {
+    if (selection.size === visibleIndices.length) {
+      setSelection(new Set());
+    } else {
+      setSelection(new Set(visibleIndices));
+    }
+  }
+
+  function handleDeleteSelected() {
+    const indices = Array.from(selection).sort((a, b) => b - a);
+    if (indices.length === 0) return;
+    removeTracks(indices);
+    setSelection(new Set());
+    setLastSelected(null);
+  }
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -216,10 +272,22 @@ export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
     updateTrack(index, track);
   }
 
-  const visibleIndices = filteredIndices ?? tracks.map((_, i) => i);
+  const allSelected = visibleIndices.length > 0 && selection.size === visibleIndices.length;
+  const someSelected = selection.size > 0;
 
   return (
     <div className="flex-1 overflow-auto">
+      {someSelected && (
+        <div className="flex items-center gap-2 border-b bg-muted/50 px-4 py-1.5 text-sm">
+          <span className="text-muted-foreground">
+            {selection.size} selected
+          </span>
+          <Button variant="ghost" size="xs" onClick={handleDeleteSelected}>
+            <Trash2 className="mr-1 h-3 w-3 text-destructive" />
+            Delete
+          </Button>
+        </div>
+      )}
       <DndContext
         sensors={isFiltering ? [] : sensors}
         collisionDetection={closestCenter}
@@ -230,6 +298,17 @@ export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8" />
+                <TableHead className="w-8 px-1">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someSelected && !allSelected;
+                    }}
+                    onChange={handleSelectAll}
+                    className="h-3.5 w-3.5 cursor-pointer accent-primary"
+                  />
+                </TableHead>
                 <TableHead className="w-12 text-center">#</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Artist</TableHead>
@@ -245,13 +324,15 @@ export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
                   id={ids[i]}
                   track={tracks[i]}
                   index={i}
+                  selected={selection.has(i)}
+                  onSelect={handleSelect}
                   onUpdate={handleUpdate}
                   onRemove={removeTrack}
                 />
               ))}
               {isFiltering && visibleIndices.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No matching tracks
                   </TableCell>
                 </TableRow>
