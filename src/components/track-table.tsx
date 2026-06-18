@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Trash2, GripVertical } from "lucide-react";
+import { Trash2, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -197,11 +197,56 @@ interface TrackTableProps {
   filteredIndices: number[] | null;
 }
 
+type SortKey = "title" | "artist" | "path";
+type SortDir = "asc" | "desc";
+
+function SortableHeader({
+  label,
+  sortKey,
+  currentKey,
+  currentDir,
+  onSort,
+}: {
+  label: string;
+  sortKey: SortKey;
+  currentKey: SortKey | null;
+  currentDir: SortDir;
+  onSort: (key: SortKey) => void;
+}) {
+  const active = currentKey === sortKey;
+  return (
+    <TableHead
+      className="cursor-pointer select-none hover:bg-muted/50"
+      onClick={() => onSort(sortKey)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {active &&
+          (currentDir === "asc" ? (
+            <ArrowUp className="h-3 w-3" />
+          ) : (
+            <ArrowDown className="h-3 w-3" />
+          ))}
+      </span>
+    </TableHead>
+  );
+}
+
 export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
-  const { updateTrack, removeTrack, removeTracks, moveTrack } = usePlaylistStore();
+  const { updateTrack, removeTrack, removeTracks, moveTrack, sortTracks } = usePlaylistStore();
   const isFiltering = filteredIndices !== null;
   const [selection, setSelection] = useState<Set<number>>(new Set());
   const [lastSelected, setLastSelected] = useState<number | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  function handleSort(key: SortKey) {
+    const newDir = sortKey === key && sortDir === "asc" ? "desc" : "asc";
+    setSortKey(key);
+    setSortDir(newDir);
+    sortTracks(key, newDir);
+    setSelection(new Set());
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -310,10 +355,10 @@ export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
                   />
                 </TableHead>
                 <TableHead className="w-12 text-center">#</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Artist</TableHead>
+                <SortableHeader label="Title" sortKey="title" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
+                <SortableHeader label="Artist" sortKey="artist" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
                 <TableHead className="w-24 text-right">Duration</TableHead>
-                <TableHead>Path</TableHead>
+                <SortableHeader label="Path" sortKey="path" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>

@@ -29,6 +29,7 @@ interface PlaylistState {
   removeTrack: (index: number) => void;
   removeTracks: (indices: number[]) => void;
   moveTrack: (from: number, to: number) => void;
+  sortTracks: (key: "title" | "artist" | "path", direction: "asc" | "desc") => void;
   markClean: () => void;
 
   undo: () => void;
@@ -120,6 +121,22 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
       const tracks = [...s.tracks];
       const [moved] = tracks.splice(from, 1);
       tracks.splice(to, 0, moved);
+      return {
+        tracks,
+        isDirty: true,
+        _past: pushHistory(s._past, s.tracks),
+        _future: [],
+      };
+    }),
+
+  sortTracks: (key, direction) =>
+    set((s) => {
+      const tracks = [...s.tracks].sort((a, b) => {
+        const av = (key === "path" ? a.path : a[key]) ?? "";
+        const bv = (key === "path" ? b.path : b[key]) ?? "";
+        const cmp = av.localeCompare(bv, undefined, { sensitivity: "base" });
+        return direction === "asc" ? cmp : -cmp;
+      });
       return {
         tracks,
         isDirty: true,
