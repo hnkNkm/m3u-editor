@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import "@/App.css";
 import { Header } from "@/components/header";
 import { TrackTable } from "@/components/track-table";
@@ -12,10 +13,19 @@ import { useCloseGuard } from "@/hooks/use-close-guard";
 
 function App() {
   const tracks = usePlaylistStore((s) => s.tracks);
+  const filePath = usePlaylistStore((s) => s.filePath);
+  const isDirty = usePlaylistStore((s) => s.isDirty);
   const [search, setSearch] = useState("");
   useFileDrop();
   useShortcuts();
   useCloseGuard();
+
+  useEffect(() => {
+    const fileName = filePath?.split(/[\\/]/).pop() ?? null;
+    const prefix = isDirty ? "● " : "";
+    const title = fileName ? `${prefix}${fileName} — m3u-editor` : "m3u-editor";
+    getCurrentWebviewWindow().setTitle(title);
+  }, [filePath, isDirty]);
 
   const filteredIndices = useMemo(() => {
     if (!search.trim()) return null;
