@@ -62,6 +62,8 @@
             webkitgtk_4_1
             libayatana-appindicator
             librsvg
+
+            mesa
           ];
 
           env = {
@@ -78,7 +80,9 @@
               pkgs.webkitgtk_4_1
               pkgs.libayatana-appindicator
               pkgs.librsvg
+              pkgs.mesa
             ];
+            LIBGL_DRIVERS_PATH = "${pkgs.mesa}/lib/dri";
           };
 
           shellHook = ''
