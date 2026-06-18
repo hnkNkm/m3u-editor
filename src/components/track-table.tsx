@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Trash2, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import {
   DndContext,
@@ -103,6 +103,7 @@ function SortableRow({
   track,
   index,
   selected,
+  duplicate,
   onSelect,
   onUpdate,
   onRemove,
@@ -111,6 +112,7 @@ function SortableRow({
   track: Track;
   index: number;
   selected: boolean;
+  duplicate: boolean;
   onSelect: (index: number, shiftKey: boolean) => void;
   onUpdate: (index: number, field: keyof Track, value: string) => void;
   onRemove: (index: number) => void;
@@ -132,7 +134,7 @@ function SortableRow({
   };
 
   return (
-    <TableRow ref={setNodeRef} style={style} data-selected={selected || undefined}>
+    <TableRow ref={setNodeRef} style={style} data-selected={selected || undefined} className={duplicate ? "bg-warning/10" : undefined}>
       <TableCell className="px-1 w-8">
         <button
           className="cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:bg-muted active:cursor-grabbing"
@@ -317,6 +319,22 @@ export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
     updateTrack(index, track);
   }
 
+  const duplicateIndices = useMemo(() => {
+    const pathCount = new Map<string, number[]>();
+    tracks.forEach((t, i) => {
+      if (!t.path) return;
+      const key = t.path.toLowerCase();
+      const list = pathCount.get(key);
+      if (list) list.push(i);
+      else pathCount.set(key, [i]);
+    });
+    const dupes = new Set<number>();
+    for (const indices of pathCount.values()) {
+      if (indices.length > 1) indices.forEach((i) => dupes.add(i));
+    }
+    return dupes;
+  }, [tracks]);
+
   const allSelected = visibleIndices.length > 0 && selection.size === visibleIndices.length;
   const someSelected = selection.size > 0;
 
@@ -370,6 +388,7 @@ export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
                   track={tracks[i]}
                   index={i}
                   selected={selection.has(i)}
+                  duplicate={duplicateIndices.has(i)}
                   onSelect={handleSelect}
                   onUpdate={handleUpdate}
                   onRemove={removeTrack}
