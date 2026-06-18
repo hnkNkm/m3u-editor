@@ -6,7 +6,7 @@ export function EmptyState() {
       <Music className="h-16 w-16" />
       <div className="text-center">
         <p className="text-lg font-medium">No playlist loaded</p>
-        <p className="text-sm">Open an M3U file to get started</p>
+        <p className="text-sm">Open or drop an M3U file to get started</p>
       </div>
     </div>
   );
