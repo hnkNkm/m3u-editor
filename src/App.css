@@ -134,7 +134,7 @@
     appearance: none;
     width: 0.875rem;
     height: 0.875rem;
-    border: 1.5px solid var(--border);
+    border: 1.5px solid var(--muted-foreground);
     border-radius: 3px;
     background: var(--background);
     cursor: pointer;
