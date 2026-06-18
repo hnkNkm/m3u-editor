@@ -5,13 +5,10 @@ import { usePlaylistStore } from "@/stores/playlist";
 import type { Playlist } from "@/stores/playlist";
 import { useRecentFiles } from "@/hooks/use-recent-files";
 
-const AUDIO_EXTENSIONS = new Set([
-  ".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg", ".opus", ".wma",
-]);
-
-function isAudioFile(path: string): boolean {
-  const ext = path.slice(path.lastIndexOf(".")).toLowerCase();
-  return AUDIO_EXTENSIONS.has(ext);
+function pathToTrack(p: string) {
+  const filename = p.split(/[\\/]/).pop() ?? p;
+  const name = filename.replace(/\.[^.]+$/, "");
+  return { path: p, title: name, artist: null, duration: null };
 }
 
 export function useFileDrop() {
@@ -36,14 +33,9 @@ export function useFileDrop() {
         return;
       }
 
-      const audioFiles = paths.filter(isAudioFile);
+      const audioFiles = await invoke<string[]>("scan_audio_files", { paths });
       if (audioFiles.length > 0) {
-        const newTracks = audioFiles.map((p) => {
-          const filename = p.split(/[\\/]/).pop() ?? p;
-          const name = filename.replace(/\.[^.]+$/, "");
-          return { path: p, title: name, artist: null, duration: null };
-        });
-        usePlaylistStore.getState().addTracks(newTracks);
+        usePlaylistStore.getState().addTracks(audioFiles.map(pathToTrack));
       }
     });
 

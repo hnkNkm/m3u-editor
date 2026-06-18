@@ -55,3 +55,45 @@ pub fn save_playlist(
 pub fn check_paths(paths: Vec<String>) -> Vec<bool> {
     paths.iter().map(|p| Path::new(p).exists()).collect()
 }
+
+const AUDIO_EXTENSIONS: &[&str] = &[
+    "mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "wma",
+];
+
+fn is_audio_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| AUDIO_EXTENSIONS.contains(&e.to_lowercase().as_str()))
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+pub fn scan_audio_files(paths: Vec<String>) -> Vec<String> {
+    let mut results = Vec::new();
+    for p in &paths {
+        let path = Path::new(p);
+        if path.is_dir() {
+            collect_audio_recursive(path, &mut results);
+        } else if path.is_file() && is_audio_file(path) {
+            if let Ok(abs) = fs::canonicalize(path) {
+                results.push(abs.to_string_lossy().to_string());
+            }
+        }
+    }
+    results.sort();
+    results
+}
+
+fn collect_audio_recursive(dir: &Path, results: &mut Vec<String>) {
+    let Ok(entries) = fs::read_dir(dir) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_audio_recursive(&path, results);
+        } else if is_audio_file(&path) {
+            if let Ok(abs) = fs::canonicalize(&path) {
+                results.push(abs.to_string_lossy().to_string());
+            }
+        }
+    }
+}

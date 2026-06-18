@@ -3,6 +3,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { usePlaylistStore } from "@/stores/playlist";
 import type { Playlist } from "@/stores/playlist";
 
+function pathToTrack(p: string) {
+  const filename = p.split(/[\\/]/).pop() ?? p;
+  const name = filename.replace(/\.[^.]+$/, "");
+  return { path: p, title: name, artist: null, duration: null };
+}
+
 interface ActionOptions {
   onFileOpened?: (path: string) => void;
   useRelative?: boolean;
@@ -92,12 +98,20 @@ export function useActions(opts?: ActionOptions) {
     });
     if (!selected) return;
     const paths = Array.isArray(selected) ? selected : [selected];
-    const newTracks = paths.map((p) => {
-      const filename = p.split(/[\\/]/).pop() ?? p;
-      const name = filename.replace(/\.[^.]+$/, "");
-      return { path: p, title: name, artist: null, duration: null };
-    });
-    usePlaylistStore.getState().addTracks(newTracks);
+    const audioFiles = await invoke<string[]>("scan_audio_files", { paths });
+    if (audioFiles.length > 0) {
+      usePlaylistStore.getState().addTracks(audioFiles.map(pathToTrack));
+    }
+  }
+
+  async function handleAddFolder() {
+    const selected = await open({ directory: true, multiple: true });
+    if (!selected) return;
+    const paths = Array.isArray(selected) ? selected : [selected];
+    const audioFiles = await invoke<string[]>("scan_audio_files", { paths });
+    if (audioFiles.length > 0) {
+      usePlaylistStore.getState().addTracks(audioFiles.map(pathToTrack));
+    }
   }
 
   async function handleNew() {
@@ -133,6 +147,7 @@ export function useActions(opts?: ActionOptions) {
     handleSaveSelected,
     handleAddEmptyTrack,
     handleAddFiles,
+    handleAddFolder,
     handleNew,
     undo,
     redo,

@@ -12,6 +12,7 @@ pub fn run() {
             commands::open_playlist,
             commands::save_playlist,
             commands::check_paths,
+            commands::scan_audio_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

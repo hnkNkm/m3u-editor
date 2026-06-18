@@ -1,4 +1,4 @@
-import { FolderOpen, Save, SaveAll, Plus, FilePlus, Undo2, Redo2, Music, Clock, Trash2 } from "lucide-react";
+import { FolderOpen, Save, SaveAll, Plus, FilePlus, Undo2, Redo2, Music, Clock, Trash2, FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -57,6 +57,7 @@ export function Header({ useRelative }: { useRelative: boolean }) {
     handleSaveAs,
     handleAddEmptyTrack,
     handleAddFiles,
+    handleAddFolder,
     handleNew,
     undo,
     redo,
@@ -123,6 +124,10 @@ export function Header({ useRelative }: { useRelative: boolean }) {
         <TipButton tip="Add audio files" variant="ghost" size="sm" onClick={handleAddFiles}>
           <Music className="mr-1.5 h-4 w-4" />
           Add Files
+        </TipButton>
+        <TipButton tip="Scan folder for audio files" variant="ghost" size="sm" onClick={handleAddFolder}>
+          <FolderPlus className="mr-1.5 h-4 w-4" />
+          Add Folder
         </TipButton>
         <TipButton tip="Add empty track" variant="ghost" size="sm" onClick={handleAddEmptyTrack}>
           <Plus className="mr-1.5 h-4 w-4" />
