@@ -112,11 +112,25 @@ export function useActions(opts?: ActionOptions) {
     usePlaylistStore.getState().clear();
   }
 
+  async function handleSaveSelected(indices: number[]) {
+    const selectedTracks = indices.map((i) => tracks[i]);
+    const selected = await save({
+      filters: [{ name: "M3U Playlist", extensions: ["m3u", "m3u8"] }],
+    });
+    if (!selected) return;
+    await invoke("save_playlist", {
+      path: selected,
+      playlist: { tracks: selectedTracks },
+      useRelative: opts?.useRelative ?? false,
+    });
+  }
+
   return {
     handleOpen,
     handleOpenRecent,
     handleSave,
     handleSaveAs,
+    handleSaveSelected,
     handleAddEmptyTrack,
     handleAddFiles,
     handleNew,

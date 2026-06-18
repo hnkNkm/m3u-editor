@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Trash2, GripVertical, ArrowUp, ArrowDown, Copy, ClipboardPaste, ArrowUpToLine, ArrowDownToLine } from "lucide-react";
+import { Trash2, GripVertical, ArrowUp, ArrowDown, Copy, ClipboardPaste, ArrowUpToLine, ArrowDownToLine, Save } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -214,6 +214,7 @@ interface TrackTableProps {
   tracks: Track[];
   filteredIndices: number[] | null;
   missingPaths: Set<number>;
+  onSaveSelected?: (indices: number[]) => void;
 }
 
 type SortKey = "title" | "artist" | "path";
@@ -251,7 +252,7 @@ function SortableHeader({
   );
 }
 
-export function TrackTable({ tracks, filteredIndices, missingPaths }: TrackTableProps) {
+export function TrackTable({ tracks, filteredIndices, missingPaths, onSaveSelected }: TrackTableProps) {
   const { updateTrack, removeTrack, removeTracks, moveTrack, addTrack, sortTracks } = usePlaylistStore();
   const isFiltering = filteredIndices !== null;
   const [selection, setSelection] = useState<Set<number>>(new Set());
@@ -391,6 +392,14 @@ export function TrackTable({ tracks, filteredIndices, missingPaths }: TrackTable
           <span className="text-muted-foreground">
             {selection.size} selected
           </span>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => onSaveSelected?.(Array.from(selection).sort((a, b) => a - b))}
+          >
+            <Save className="mr-1 h-3 w-3" />
+            Save Selected
+          </Button>
           <Button variant="ghost" size="xs" onClick={handleDeleteSelected}>
             <Trash2 className="mr-1 h-3 w-3 text-destructive" />
             Delete
