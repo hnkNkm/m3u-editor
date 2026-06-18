@@ -10,7 +10,7 @@ function getStore() {
 }
 
 export function usePathMode() {
-  const [useRelative, setUseRelative] = useState(false);
+  const [useRelative, setUseRelative] = useState(true);
 
   useEffect(() => {
     getStore().then(async (store) => {
