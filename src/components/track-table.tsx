@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Trash2, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
+import { Trash2, GripVertical, ArrowUp, ArrowDown, Copy, ClipboardPaste, ArrowUpToLine, ArrowDownToLine } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -107,6 +107,7 @@ function SortableRow({
   onSelect,
   onUpdate,
   onRemove,
+  onContextMenu,
   id,
 }: {
   track: Track;
@@ -116,6 +117,7 @@ function SortableRow({
   onSelect: (index: number, shiftKey: boolean) => void;
   onUpdate: (index: number, field: keyof Track, value: string) => void;
   onRemove: (index: number) => void;
+  onContextMenu: (index: number, x: number, y: number) => void;
   id: string;
 }) {
   const {
@@ -134,7 +136,16 @@ function SortableRow({
   };
 
   return (
-    <TableRow ref={setNodeRef} style={style} data-selected={selected || undefined} className={duplicate ? "bg-warning/10" : undefined}>
+    <TableRow
+      ref={setNodeRef}
+      style={style}
+      data-selected={selected || undefined}
+      className={duplicate ? "bg-warning/10" : undefined}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onContextMenu(index, e.clientX, e.clientY);
+      }}
+    >
       <TableCell className="px-1 w-8">
         <button
           className="cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:bg-muted active:cursor-grabbing"
@@ -235,12 +246,14 @@ function SortableHeader({
 }
 
 export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
-  const { updateTrack, removeTrack, removeTracks, moveTrack, sortTracks } = usePlaylistStore();
+  const { updateTrack, removeTrack, removeTracks, moveTrack, addTrack, sortTracks } = usePlaylistStore();
   const isFiltering = filteredIndices !== null;
   const [selection, setSelection] = useState<Set<number>>(new Set());
   const [lastSelected, setLastSelected] = useState<number | null>(null);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [ctxMenu, setCtxMenu] = useState<{ index: number; x: number; y: number } | null>(null);
+  const ctxRef = useRef<HTMLDivElement>(null);
 
   function handleSort(key: SortKey) {
     const newDir = sortKey === key && sortDir === "asc" ? "desc" : "asc";
@@ -319,6 +332,33 @@ export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
     updateTrack(index, track);
   }
 
+  function handleContextMenu(index: number, x: number, y: number) {
+    setCtxMenu({ index, x, y });
+  }
+
+  useEffect(() => {
+    if (!ctxMenu) return;
+    function close(e: MouseEvent) {
+      if (ctxRef.current && !ctxRef.current.contains(e.target as Node)) {
+        setCtxMenu(null);
+      }
+    }
+    function closeOnKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setCtxMenu(null);
+    }
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", closeOnKey);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", closeOnKey);
+    };
+  }, [ctxMenu]);
+
+  function ctxAction(fn: () => void) {
+    fn();
+    setCtxMenu(null);
+  }
+
   const duplicateIndices = useMemo(() => {
     const pathCount = new Map<string, number[]>();
     tracks.forEach((t, i) => {
@@ -392,6 +432,7 @@ export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
                   onSelect={handleSelect}
                   onUpdate={handleUpdate}
                   onRemove={removeTrack}
+                  onContextMenu={handleContextMenu}
                 />
               ))}
               {isFiltering && visibleIndices.length === 0 && (
@@ -405,6 +446,93 @@ export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
           </Table>
         </SortableContext>
       </DndContext>
+      {ctxMenu && (
+        <div
+          ref={ctxRef}
+          className="fixed z-50 min-w-[160px] rounded-lg border bg-popover p-1 text-popover-foreground shadow-md"
+          style={{ left: ctxMenu.x, top: ctxMenu.y }}
+        >
+          <CtxItem
+            onClick={() =>
+              ctxAction(() => {
+                const t = tracks[ctxMenu.index];
+                addTrack({ ...t });
+              })
+            }
+          >
+            <Copy className="mr-2 h-3.5 w-3.5" />
+            Duplicate
+          </CtxItem>
+          <CtxItem
+            onClick={() =>
+              ctxAction(() =>
+                addTrack({ path: "", title: null, artist: null, duration: null })
+              )
+            }
+          >
+            <ClipboardPaste className="mr-2 h-3.5 w-3.5" />
+            Insert Track
+          </CtxItem>
+          {ctxMenu.index > 0 && (
+            <CtxItem
+              onClick={() =>
+                ctxAction(() => moveTrack(ctxMenu.index, 0))
+              }
+            >
+              <ArrowUpToLine className="mr-2 h-3.5 w-3.5" />
+              Move to Top
+            </CtxItem>
+          )}
+          {ctxMenu.index < tracks.length - 1 && (
+            <CtxItem
+              onClick={() =>
+                ctxAction(() => moveTrack(ctxMenu.index, tracks.length - 1))
+              }
+            >
+              <ArrowDownToLine className="mr-2 h-3.5 w-3.5" />
+              Move to Bottom
+            </CtxItem>
+          )}
+          <div className="-mx-1 my-1 h-px bg-border" />
+          <CtxItem
+            className="text-destructive"
+            onClick={() =>
+              ctxAction(() => {
+                if (selection.size > 0 && selection.has(ctxMenu.index)) {
+                  removeTracks(Array.from(selection));
+                  setSelection(new Set());
+                } else {
+                  removeTrack(ctxMenu.index);
+                }
+              })
+            }
+          >
+            <Trash2 className="mr-2 h-3.5 w-3.5" />
+            {selection.size > 0 && selection.has(ctxMenu.index)
+              ? `Delete ${selection.size} Tracks`
+              : "Delete"}
+          </CtxItem>
+        </div>
+      )}
     </div>
+  );
+}
+
+function CtxItem({
+  children,
+  onClick,
+  className,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      className={`flex w-full cursor-default items-center rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground ${className ?? ""}`}
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }
