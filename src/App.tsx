@@ -4,6 +4,7 @@ import { Header } from "@/components/header";
 import { TrackTable } from "@/components/track-table";
 import { EmptyState } from "@/components/empty-state";
 import { SearchBar } from "@/components/search-bar";
+import { StatusBar } from "@/components/status-bar";
 import { usePlaylistStore } from "@/stores/playlist";
 import { useFileDrop } from "@/hooks/use-file-drop";
 
@@ -38,6 +39,7 @@ function App() {
       ) : (
         <EmptyState />
       )}
+      {hasTracks && <StatusBar />}
     </div>
   );
 }
