@@ -11,6 +11,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::open_playlist,
             commands::save_playlist,
+            commands::check_paths,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,5 +1,6 @@
 use crate::m3u::{self, Playlist};
 use std::fs;
+use std::path::Path;
 
 #[tauri::command]
 pub fn open_playlist(path: String) -> Result<Playlist, String> {
@@ -11,4 +12,9 @@ pub fn open_playlist(path: String) -> Result<Playlist, String> {
 pub fn save_playlist(path: String, playlist: Playlist) -> Result<(), String> {
     let content = m3u::serialize(&playlist);
     fs::write(&path, content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn check_paths(paths: Vec<String>) -> Vec<bool> {
+    paths.iter().map(|p| Path::new(p).exists()).collect()
 }

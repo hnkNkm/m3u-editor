@@ -104,6 +104,7 @@ function SortableRow({
   index,
   selected,
   duplicate,
+  missing,
   onSelect,
   onUpdate,
   onRemove,
@@ -114,6 +115,7 @@ function SortableRow({
   index: number;
   selected: boolean;
   duplicate: boolean;
+  missing: boolean;
   onSelect: (index: number, shiftKey: boolean) => void;
   onUpdate: (index: number, field: keyof Track, value: string) => void;
   onRemove: (index: number) => void;
@@ -189,8 +191,11 @@ function SortableRow({
         <EditableCell
           value={track.path}
           onCommit={(v) => onUpdate(index, "path", v)}
-          className="text-muted-foreground text-sm"
+          className={missing ? "text-destructive text-sm" : "text-muted-foreground text-sm"}
         />
+        {missing && (
+          <span className="text-[10px] text-destructive">File not found</span>
+        )}
       </TableCell>
       <TableCell className="px-1 w-10">
         <Button
@@ -208,6 +213,7 @@ function SortableRow({
 interface TrackTableProps {
   tracks: Track[];
   filteredIndices: number[] | null;
+  missingPaths: Set<number>;
 }
 
 type SortKey = "title" | "artist" | "path";
@@ -245,7 +251,7 @@ function SortableHeader({
   );
 }
 
-export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
+export function TrackTable({ tracks, filteredIndices, missingPaths }: TrackTableProps) {
   const { updateTrack, removeTrack, removeTracks, moveTrack, addTrack, sortTracks } = usePlaylistStore();
   const isFiltering = filteredIndices !== null;
   const [selection, setSelection] = useState<Set<number>>(new Set());
@@ -429,6 +435,7 @@ export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
                   index={i}
                   selected={selection.has(i)}
                   duplicate={duplicateIndices.has(i)}
+                  missing={missingPaths.has(i)}
                   onSelect={handleSelect}
                   onUpdate={handleUpdate}
                   onRemove={removeTrack}

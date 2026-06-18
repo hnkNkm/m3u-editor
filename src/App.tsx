@@ -10,12 +10,14 @@ import { usePlaylistStore } from "@/stores/playlist";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useShortcuts } from "@/hooks/use-shortcuts";
 import { useCloseGuard } from "@/hooks/use-close-guard";
+import { usePathCheck } from "@/hooks/use-path-check";
 
 function App() {
   const tracks = usePlaylistStore((s) => s.tracks);
   const filePath = usePlaylistStore((s) => s.filePath);
   const isDirty = usePlaylistStore((s) => s.isDirty);
   const [search, setSearch] = useState("");
+  const missingPaths = usePathCheck(tracks);
   useFileDrop();
   useShortcuts();
   useCloseGuard();
@@ -49,7 +51,7 @@ function App() {
       <Header />
       {hasTracks && <SearchBar value={search} onChange={setSearch} />}
       {hasTracks ? (
-        <TrackTable tracks={tracks} filteredIndices={filteredIndices} />
+        <TrackTable tracks={tracks} filteredIndices={filteredIndices} missingPaths={missingPaths} />
       ) : (
         <EmptyState />
       )}
