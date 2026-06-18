@@ -11,6 +11,7 @@ import { useFileDrop } from "@/hooks/use-file-drop";
 import { useShortcuts } from "@/hooks/use-shortcuts";
 import { useCloseGuard } from "@/hooks/use-close-guard";
 import { usePathCheck } from "@/hooks/use-path-check";
+import { usePathMode } from "@/hooks/use-path-mode";
 
 function App() {
   const tracks = usePlaylistStore((s) => s.tracks);
@@ -18,6 +19,7 @@ function App() {
   const isDirty = usePlaylistStore((s) => s.isDirty);
   const [search, setSearch] = useState("");
   const missingPaths = usePathCheck(tracks);
+  const { useRelative, togglePathMode } = usePathMode();
   useFileDrop();
   useShortcuts();
   useCloseGuard();
@@ -48,14 +50,19 @@ function App() {
 
   return (
     <div className="flex h-screen flex-col">
-      <Header />
+      <Header useRelative={useRelative} />
       {hasTracks && <SearchBar value={search} onChange={setSearch} />}
       {hasTracks ? (
         <TrackTable tracks={tracks} filteredIndices={filteredIndices} missingPaths={missingPaths} />
       ) : (
         <EmptyState />
       )}
-      {hasTracks && <StatusBar />}
+      {hasTracks && (
+        <StatusBar
+          useRelative={useRelative}
+          onTogglePathMode={togglePathMode}
+        />
+      )}
     </div>
   );
 }

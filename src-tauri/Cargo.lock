@@ -1928,6 +1928,7 @@ name = "m3u-editor"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "pathdiff",
  "serde",
  "serde_json",
  "tauri",

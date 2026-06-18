@@ -45,7 +45,7 @@ function TipButton({
   );
 }
 
-export function Header() {
+export function Header({ useRelative }: { useRelative: boolean }) {
   const { filePath, tracks, isDirty } = usePlaylistStore();
   const canUndo = usePlaylistStore((s) => s.canUndo());
   const canRedo = usePlaylistStore((s) => s.canRedo());
@@ -60,7 +60,7 @@ export function Header() {
     handleNew,
     undo,
     redo,
-  } = useActions({ onFileOpened: addRecentFile });
+  } = useActions({ onFileOpened: addRecentFile, useRelative });
 
   return (
     <TooltipProvider delay={400}>

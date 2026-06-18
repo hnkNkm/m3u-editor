@@ -5,6 +5,7 @@ import type { Playlist } from "@/stores/playlist";
 
 interface ActionOptions {
   onFileOpened?: (path: string) => void;
+  useRelative?: boolean;
 }
 
 export function useActions(opts?: ActionOptions) {
@@ -51,7 +52,11 @@ export function useActions(opts?: ActionOptions) {
       handleSaveAs();
       return;
     }
-    await invoke("save_playlist", { path: filePath, playlist: { tracks } });
+    await invoke("save_playlist", {
+      path: filePath,
+      playlist: { tracks },
+      useRelative: opts?.useRelative ?? false,
+    });
     markClean();
   }
 
@@ -60,7 +65,11 @@ export function useActions(opts?: ActionOptions) {
       filters: [{ name: "M3U Playlist", extensions: ["m3u", "m3u8"] }],
     });
     if (!selected) return;
-    await invoke("save_playlist", { path: selected, playlist: { tracks } });
+    await invoke("save_playlist", {
+      path: selected,
+      playlist: { tracks },
+      useRelative: opts?.useRelative ?? false,
+    });
     setPlaylist(selected, { tracks });
     opts?.onFileOpened?.(selected);
   }

@@ -9,7 +9,12 @@ function formatTotalDuration(seconds: number): string {
   return `${s}s`;
 }
 
-export function StatusBar() {
+interface StatusBarProps {
+  useRelative: boolean;
+  onTogglePathMode: () => void;
+}
+
+export function StatusBar({ useRelative, onTogglePathMode }: StatusBarProps) {
   const tracks = usePlaylistStore((s) => s.tracks);
 
   const totalDuration = tracks.reduce(
@@ -22,7 +27,15 @@ export function StatusBar() {
       <span>
         {tracks.length} {tracks.length === 1 ? "track" : "tracks"}
       </span>
-      {totalDuration > 0 && <span>{formatTotalDuration(totalDuration)}</span>}
+      <div className="flex items-center gap-3">
+        {totalDuration > 0 && <span>{formatTotalDuration(totalDuration)}</span>}
+        <button
+          className="hover:text-foreground transition-colors"
+          onClick={onTogglePathMode}
+        >
+          Path: {useRelative ? "Relative" : "Absolute"}
+        </button>
+      </div>
     </footer>
   );
 }
