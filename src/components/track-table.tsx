@@ -182,10 +182,12 @@ function SortableRow({
 
 interface TrackTableProps {
   tracks: Track[];
+  filteredIndices: number[] | null;
 }
 
-export function TrackTable({ tracks }: TrackTableProps) {
+export function TrackTable({ tracks, filteredIndices }: TrackTableProps) {
   const { updateTrack, removeTrack, moveTrack } = usePlaylistStore();
+  const isFiltering = filteredIndices !== null;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -214,10 +216,12 @@ export function TrackTable({ tracks }: TrackTableProps) {
     updateTrack(index, track);
   }
 
+  const visibleIndices = filteredIndices ?? tracks.map((_, i) => i);
+
   return (
     <div className="flex-1 overflow-auto">
       <DndContext
-        sensors={sensors}
+        sensors={isFiltering ? [] : sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
@@ -235,16 +239,23 @@ export function TrackTable({ tracks }: TrackTableProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tracks.map((track, i) => (
+              {visibleIndices.map((i) => (
                 <SortableRow
                   key={ids[i]}
                   id={ids[i]}
-                  track={track}
+                  track={tracks[i]}
                   index={i}
                   onUpdate={handleUpdate}
                   onRemove={removeTrack}
                 />
               ))}
+              {isFiltering && visibleIndices.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    No matching tracks
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </SortableContext>
