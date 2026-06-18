@@ -45,8 +45,30 @@ export function useActions() {
     setPlaylist(selected, { tracks });
   }
 
-  function handleAddTrack() {
+  function handleAddEmptyTrack() {
     addTrack({ path: "", title: null, artist: null, duration: null });
+  }
+
+  async function handleAddFiles() {
+    const selected = await open({
+      multiple: true,
+      filters: [
+        {
+          name: "Audio Files",
+          extensions: [
+            "mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "wma",
+          ],
+        },
+      ],
+    });
+    if (!selected) return;
+    const paths = Array.isArray(selected) ? selected : [selected];
+    const newTracks = paths.map((p) => {
+      const filename = p.split(/[\\/]/).pop() ?? p;
+      const name = filename.replace(/\.[^.]+$/, "");
+      return { path: p, title: name, artist: null, duration: null };
+    });
+    usePlaylistStore.getState().addTracks(newTracks);
   }
 
   async function handleNew() {
@@ -61,5 +83,5 @@ export function useActions() {
     usePlaylistStore.getState().clear();
   }
 
-  return { handleOpen, handleSave, handleSaveAs, handleAddTrack, handleNew, undo, redo };
+  return { handleOpen, handleSave, handleSaveAs, handleAddEmptyTrack, handleAddFiles, handleNew, undo, redo };
 }

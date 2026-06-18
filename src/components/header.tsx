@@ -1,4 +1,4 @@
-import { FolderOpen, Save, SaveAll, Plus, FilePlus, Undo2, Redo2 } from "lucide-react";
+import { FolderOpen, Save, SaveAll, Plus, FilePlus, Undo2, Redo2, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -9,7 +9,7 @@ export function Header() {
   const { filePath, tracks, isDirty } = usePlaylistStore();
   const canUndo = usePlaylistStore((s) => s.canUndo());
   const canRedo = usePlaylistStore((s) => s.canRedo());
-  const { handleOpen, handleSave, handleSaveAs, handleAddTrack, handleNew, undo, redo } =
+  const { handleOpen, handleSave, handleSaveAs, handleAddEmptyTrack, handleAddFiles, handleNew, undo, redo } =
     useActions();
 
   return (
@@ -48,7 +48,11 @@ export function Header() {
         <Redo2 className="h-4 w-4" />
       </Button>
       <Separator orientation="vertical" className="mx-1 h-6" />
-      <Button variant="ghost" size="sm" onClick={handleAddTrack}>
+      <Button variant="ghost" size="sm" onClick={handleAddFiles}>
+        <Music className="mr-1.5 h-4 w-4" />
+        Add Files
+      </Button>
+      <Button variant="ghost" size="sm" onClick={handleAddEmptyTrack}>
         <Plus className="mr-1.5 h-4 w-4" />
         Add Track
       </Button>
