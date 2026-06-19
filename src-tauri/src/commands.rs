@@ -1,4 +1,6 @@
 use crate::m3u::{self, Playlist, Track};
+use lofty::file::{AudioFile, TaggedFileExt};
+use lofty::tag::Accessor;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -77,33 +79,124 @@ fn is_audio_file(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+fn read_track(path: &Path) -> Option<Track> {
+    let abs = clean_canonicalize(path)?;
+    let abs_str = abs.to_string_lossy().to_string();
+
+    let tagged = lofty::read_from_path(&abs).ok();
+    let tag = tagged.as_ref().and_then(|f| f.primary_tag().or_else(|| f.first_tag()));
+
+    let title = tag
+        .and_then(|t| t.title().map(|s| s.to_string()))
+        .or_else(|| {
+            abs.file_stem()
+                .and_then(|s| s.to_str())
+                .map(|s| s.to_string())
+        });
+
+    let artist = tag.and_then(|t| t.artist().map(|s| s.to_string()));
+
+    let duration = tagged.as_ref().map(|f| {
+        f.properties().duration().as_secs() as i64
+    });
+
+    Some(Track {
+        path: abs_str,
+        title,
+        artist,
+        duration,
+    })
+}
+
 #[tauri::command]
-pub fn scan_audio_files(paths: Vec<String>) -> Vec<String> {
+pub fn scan_audio_files(paths: Vec<String>) -> Vec<Track> {
     let mut results = Vec::new();
     for p in &paths {
         let path = Path::new(p);
         if path.is_dir() {
             collect_audio_recursive(path, &mut results);
         } else if path.is_file() && is_audio_file(path) {
-            if let Some(abs) = clean_canonicalize(path) {
-                results.push(abs.to_string_lossy().to_string());
+            if let Some(track) = read_track(path) {
+                results.push(track);
             }
         }
     }
-    results.sort();
+    results.sort_by(|a, b| a.path.cmp(&b.path));
     results
 }
 
-fn collect_audio_recursive(dir: &Path, results: &mut Vec<String>) {
+fn collect_audio_recursive(dir: &Path, results: &mut Vec<Track>) {
     let Ok(entries) = fs::read_dir(dir) else { return };
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
             collect_audio_recursive(&path, results);
         } else if is_audio_file(&path) {
-            if let Some(abs) = clean_canonicalize(&path) {
-                results.push(abs.to_string_lossy().to_string());
+            if let Some(track) = read_track(&path) {
+                results.push(track);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    fn assert_track(ext: &str, expected_title: &str, expected_artist: &str) {
+        let path = Path::new("tests/fixtures").join(format!("test.{ext}"));
+        let track = read_track(&path).unwrap_or_else(|| panic!("should read {ext}"));
+        assert_eq!(track.title.as_deref(), Some(expected_title), "{ext} title");
+        assert_eq!(track.artist.as_deref(), Some(expected_artist), "{ext} artist");
+        assert!(track.duration.unwrap_or(0) > 0, "{ext} duration should be > 0");
+    }
+
+    #[test]
+    fn read_flac_tags() {
+        assert_track("flac", "Test Track", "Test Artist");
+    }
+
+    #[test]
+    fn read_mp3_tags() {
+        assert_track("mp3", "Test Track MP3", "Test Artist MP3");
+    }
+
+    #[test]
+    fn read_wav_tags() {
+        assert_track("wav", "Test WAV", "Test Artist WAV");
+    }
+
+    #[test]
+    fn read_m4a_tags() {
+        assert_track("m4a", "Test M4A", "Test Artist M4A");
+    }
+
+    #[test]
+    fn read_ogg_tags() {
+        assert_track("ogg", "Test OGG", "Test Artist OGG");
+    }
+
+    #[test]
+    fn read_opus_tags() {
+        assert_track("opus", "Test OPUS", "Test Artist OPUS");
+    }
+
+    #[test]
+    fn read_aac_no_tags() {
+        // Raw ADTS AAC has no tag container — title falls back to filename
+        let path = Path::new("tests/fixtures/test.aac");
+        let track = read_track(&path).expect("should read AAC");
+        assert_eq!(track.title.as_deref(), Some("test"));
+        assert_eq!(track.artist, None);
+    }
+
+    #[test]
+    fn read_wma_no_tags() {
+        // lofty doesn't support ASF/WMA tags — title falls back to filename
+        let path = Path::new("tests/fixtures/test.wma");
+        let track = read_track(&path).expect("should read WMA");
+        assert_eq!(track.title.as_deref(), Some("test"));
+        assert_eq!(track.artist, None);
     }
 }

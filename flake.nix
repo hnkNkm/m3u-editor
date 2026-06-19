@@ -64,6 +64,8 @@
             librsvg
 
             mesa
+
+            ffmpeg
           ];
 
           env = {

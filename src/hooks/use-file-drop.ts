@@ -2,14 +2,8 @@ import { useEffect } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { usePlaylistStore } from "@/stores/playlist";
-import type { Playlist } from "@/stores/playlist";
+import type { Playlist, Track } from "@/stores/playlist";
 import { useRecentFiles } from "@/hooks/use-recent-files";
-
-function pathToTrack(p: string) {
-  const filename = p.split(/[\\/]/).pop() ?? p;
-  const name = filename.replace(/\.[^.]+$/, "");
-  return { path: p, title: name, artist: null, duration: null };
-}
 
 export function useFileDrop() {
   const setPlaylist = usePlaylistStore((s) => s.setPlaylist);
@@ -33,9 +27,9 @@ export function useFileDrop() {
         return;
       }
 
-      const audioFiles = await invoke<string[]>("scan_audio_files", { paths });
-      if (audioFiles.length > 0) {
-        usePlaylistStore.getState().addTracks(audioFiles.map(pathToTrack));
+      const audioTracks = await invoke<Track[]>("scan_audio_files", { paths });
+      if (audioTracks.length > 0) {
+        usePlaylistStore.getState().addTracks(audioTracks);
       }
     });
 
