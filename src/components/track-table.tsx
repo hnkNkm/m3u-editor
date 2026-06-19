@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
-import { Trash2, GripVertical, ArrowUp, ArrowDown, Copy, ClipboardPaste, ArrowUpToLine, ArrowDownToLine, Save } from "lucide-react";
+import { Trash2, GripVertical, ArrowUp, ArrowDown, Copy, ClipboardPaste, ArrowUpToLine, ArrowDownToLine } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -226,7 +226,6 @@ interface TrackTableProps {
   tracks: Track[];
   filteredIndices: number[] | null;
   missingPaths: Set<number>;
-  onSaveSelected?: (indices: number[]) => void;
 }
 
 type SortKey = "title" | "artist" | "path";
@@ -264,11 +263,16 @@ function SortableHeader({
   );
 }
 
-export function TrackTable({ tracks, filteredIndices, missingPaths, onSaveSelected }: TrackTableProps) {
-  const { updateTrack, removeTrack, removeTracks, moveTrack, addTrack, sortTracks } = usePlaylistStore();
+export function TrackTable({ tracks, filteredIndices, missingPaths }: TrackTableProps) {
+  const updateTrack = usePlaylistStore((s) => s.updateTrack);
+  const removeTrack = usePlaylistStore((s) => s.removeTrack);
+  const removeTracks = usePlaylistStore((s) => s.removeTracks);
+  const moveTrack = usePlaylistStore((s) => s.moveTrack);
+  const addTrack = usePlaylistStore((s) => s.addTrack);
+  const sortTracks = usePlaylistStore((s) => s.sortTracks);
+  const selection = usePlaylistStore((s) => s.selection);
   const isFiltering = filteredIndices !== null;
-  const [selection, setSelection] = useState<Set<number>>(new Set());
-  const [lastSelected, setLastSelected] = useState<number | null>(null);
+  const lastSelectedRef = useRef<number | null>(null);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [ctxMenu, setCtxMenu] = useState<{ index: number; x: number; y: number } | null>(null);
@@ -283,7 +287,7 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, onSaveSelect
       });
       return key;
     });
-    setSelection(new Set());
+    usePlaylistStore.getState().setSelection(new Set());
   }, [sortTracks]);
 
   const sensors = useSensors(
@@ -305,47 +309,44 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, onSaveSelect
 
   const handleSelect = useCallback(
     (index: number, shiftKey: boolean) => {
-      setSelection((prev) => {
-        const next = new Set(prev);
-        if (shiftKey && lastSelected !== null) {
-          const start = Math.min(lastSelected, index);
-          const end = Math.max(lastSelected, index);
-          for (let i = start; i <= end; i++) {
-            if (!isFiltering || visibleIndicesSet.has(i)) {
-              next.add(i);
-            }
+      const { selection: cur, setSelection: set } = usePlaylistStore.getState();
+      const next = new Set(cur);
+      if (shiftKey && lastSelectedRef.current !== null) {
+        const start = Math.min(lastSelectedRef.current, index);
+        const end = Math.max(lastSelectedRef.current, index);
+        for (let i = start; i <= end; i++) {
+          if (!isFiltering || visibleIndicesSet.has(i)) {
+            next.add(i);
           }
-        } else if (next.has(index)) {
-          next.delete(index);
-        } else {
-          next.add(index);
         }
-        return next;
-      });
-      setLastSelected(index);
+      } else if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      set(next);
+      lastSelectedRef.current = index;
     },
-    [lastSelected, isFiltering, visibleIndicesSet],
+    [isFiltering, visibleIndicesSet],
   );
 
   const handleSelectAll = useCallback(() => {
-    setSelection((prev) => {
-      if (prev.size === visibleIndices.length) {
-        return new Set();
-      } else {
-        return new Set(visibleIndices);
-      }
-    });
+    const { selection: cur, setSelection: set } = usePlaylistStore.getState();
+    if (cur.size === visibleIndices.length) {
+      set(new Set());
+    } else {
+      set(new Set(visibleIndices));
+    }
   }, [visibleIndices]);
 
   const handleDeleteSelected = useCallback(() => {
-    setSelection((prev) => {
-      const indices = Array.from(prev).sort((a, b) => b - a);
-      if (indices.length > 0) {
-        removeTracks(indices);
-      }
-      return new Set();
-    });
-    setLastSelected(null);
+    const { selection: cur, setSelection: set } = usePlaylistStore.getState();
+    const indices = Array.from(cur).sort((a, b) => b - a);
+    if (indices.length > 0) {
+      removeTracks(indices);
+    }
+    set(new Set());
+    lastSelectedRef.current = null;
   }, [removeTracks]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
@@ -422,14 +423,6 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, onSaveSelect
           <span className="text-muted-foreground">
             {selection.size} selected
           </span>
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() => onSaveSelected?.(Array.from(selection).sort((a, b) => a - b))}
-          >
-            <Save className="mr-1 h-3 w-3" />
-            Save Selected
-          </Button>
           <Button variant="ghost" size="xs" onClick={handleDeleteSelected}>
             <Trash2 className="mr-1 h-3 w-3 text-destructive" />
             Delete
@@ -546,7 +539,7 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, onSaveSelect
               ctxAction(() => {
                 if (selection.size > 0 && selection.has(ctxMenu.index)) {
                   removeTracks(Array.from(selection));
-                  setSelection(new Set());
+                  usePlaylistStore.getState().setSelection(new Set());
                 } else {
                   removeTrack(ctxMenu.index);
                 }

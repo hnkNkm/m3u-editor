@@ -58,17 +58,20 @@ export function useActions(opts?: ActionOptions) {
   }, [openFile]);
 
   const handleSaveAs = useCallback(async () => {
-    const { tracks, setPlaylist } = usePlaylistStore.getState();
+    const { tracks, selection, setPlaylist } = usePlaylistStore.getState();
+    const saveTracks = selection.size > 0
+      ? tracks.filter((_, i) => selection.has(i))
+      : tracks;
     const selected = await save({
       filters: [{ name: "M3U Playlist", extensions: ["m3u", "m3u8"] }],
     });
     if (!selected) return;
     await invoke("save_playlist", {
       path: selected,
-      playlist: { tracks },
+      playlist: { tracks: saveTracks },
       useRelative: optsRef.current?.useRelative ?? false,
     });
-    setPlaylist(selected, { tracks });
+    setPlaylist(selected, { tracks: saveTracks });
     optsRef.current?.onFileOpened?.(selected);
   }, []);
 
@@ -132,26 +135,11 @@ export function useActions(opts?: ActionOptions) {
     clear();
   }, []);
 
-  const handleSaveSelected = useCallback(async (indices: number[]) => {
-    const { tracks } = usePlaylistStore.getState();
-    const selectedTracks = indices.map((i) => tracks[i]);
-    const selected = await save({
-      filters: [{ name: "M3U Playlist", extensions: ["m3u", "m3u8"] }],
-    });
-    if (!selected) return;
-    await invoke("save_playlist", {
-      path: selected,
-      playlist: { tracks: selectedTracks },
-      useRelative: optsRef.current?.useRelative ?? false,
-    });
-  }, []);
-
   return {
     handleOpen,
     handleOpenRecent,
     handleSave,
     handleSaveAs,
-    handleSaveSelected,
     handleAddEmptyTrack,
     handleAddFiles,
     handleAddFolder,

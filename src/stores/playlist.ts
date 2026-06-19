@@ -17,6 +17,7 @@ interface PlaylistState {
   tracks: Track[];
   filePath: string | null;
   isDirty: boolean;
+  selection: Set<number>;
 
   _past: Track[][];
   _future: Track[][];
@@ -31,6 +32,7 @@ interface PlaylistState {
   moveTrack: (from: number, to: number) => void;
   sortTracks: (key: "title" | "artist" | "path", direction: "asc" | "desc") => void;
   markClean: () => void;
+  setSelection: (selection: Set<number>) => void;
 
   undo: () => void;
   redo: () => void;
@@ -48,6 +50,7 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
   tracks: [],
   filePath: null,
   isDirty: false,
+  selection: new Set(),
   _past: [],
   _future: [],
 
@@ -56,6 +59,7 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
       tracks: playlist.tracks,
       filePath,
       isDirty: false,
+      selection: new Set(),
       _past: [],
       _future: [],
     }),
@@ -65,6 +69,7 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
       tracks: [],
       filePath: null,
       isDirty: false,
+      selection: new Set(),
       _past: [],
       _future: [],
     }),
@@ -146,6 +151,7 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
     }),
 
   markClean: () => set({ isDirty: false }),
+  setSelection: (selection) => set({ selection }),
 
   undo: () =>
     set((s) => {

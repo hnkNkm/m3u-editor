@@ -46,7 +46,9 @@ function TipButton({
 }
 
 export function Header({ useRelative }: { useRelative: boolean }) {
-  const { filePath, tracks, isDirty } = usePlaylistStore();
+  const filePath = usePlaylistStore((s) => s.filePath);
+  const isDirty = usePlaylistStore((s) => s.isDirty);
+  const hasTracks = usePlaylistStore((s) => s.tracks.length > 0);
   const canUndo = usePlaylistStore((s) => s.canUndo());
   const canRedo = usePlaylistStore((s) => s.canRedo());
   const { recentFiles, addRecentFile, clearRecentFiles } = useRecentFiles();
@@ -104,12 +106,12 @@ export function Header({ useRelative }: { useRelative: boolean }) {
           variant="ghost"
           size="sm"
           onClick={handleSave}
-          disabled={tracks.length === 0}
+          disabled={!hasTracks}
         >
           <Save className="mr-1.5 h-4 w-4" />
           Save
         </TipButton>
-        <TipButton tip="Save As" variant="ghost" size="sm" onClick={handleSaveAs} disabled={tracks.length === 0}>
+        <TipButton tip="Save As" variant="ghost" size="sm" onClick={handleSaveAs} disabled={!hasTracks}>
           <SaveAll className="mr-1.5 h-4 w-4" />
           Save As
         </TipButton>
