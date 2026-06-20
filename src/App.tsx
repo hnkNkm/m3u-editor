@@ -12,6 +12,7 @@ import { useShortcuts } from "@/hooks/use-shortcuts";
 import { useCloseGuard } from "@/hooks/use-close-guard";
 import { usePathCheck } from "@/hooks/use-path-check";
 import { usePathMode } from "@/hooks/use-path-mode";
+import { useColumnSettings } from "@/hooks/use-column-settings";
 
 function App() {
   const tracks = usePlaylistStore((s) => s.tracks);
@@ -20,6 +21,7 @@ function App() {
   const [search, setSearch] = useState("");
   const missingPaths = usePathCheck(tracks);
   const { useRelative, togglePathMode } = usePathMode();
+  const { columns, toggleColumn, resizeColumn } = useColumnSettings();
   useFileDrop();
   useShortcuts();
   useCloseGuard();
@@ -53,7 +55,14 @@ function App() {
       <Header useRelative={useRelative} />
       {hasTracks && <SearchBar value={search} onChange={setSearch} />}
       {hasTracks ? (
-        <TrackTable tracks={tracks} filteredIndices={filteredIndices} missingPaths={missingPaths} />
+        <TrackTable
+          tracks={tracks}
+          filteredIndices={filteredIndices}
+          missingPaths={missingPaths}
+          columns={columns}
+          onToggleColumn={toggleColumn}
+          onResizeColumn={resizeColumn}
+        />
       ) : (
         <EmptyState />
       )}

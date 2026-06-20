@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
-import { Trash2, GripVertical, ArrowUp, ArrowDown, Copy, ClipboardPaste, ArrowUpToLine, ArrowDownToLine } from "lucide-react";
+import { Trash2, GripVertical, ArrowUp, ArrowDown, Copy, ClipboardPaste, ArrowUpToLine, ArrowDownToLine, Eye, EyeOff } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -16,17 +16,41 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import type { Track } from "@/stores/playlist";
 import { usePlaylistStore } from "@/stores/playlist";
+import type { ColumnConfig, ColumnKey } from "@/hooks/use-column-settings";
+
+function useClickOutside(
+  ref: React.RefObject<HTMLElement | null>,
+  active: boolean,
+  onClose: () => void,
+  closeOnEscape = false,
+) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (!active) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onCloseRef.current();
+      }
+    }
+    window.addEventListener("mousedown", handleClick);
+    if (!closeOnEscape) {
+      return () => window.removeEventListener("mousedown", handleClick);
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onCloseRef.current();
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [ref, active, closeOnEscape]);
+}
 
 function formatDuration(seconds: number | null): string {
   if (seconds == null || seconds < 0) return "";
@@ -68,11 +92,12 @@ function EditableCell({
   if (!editing) {
     return (
       <span
-        className={`cursor-pointer rounded px-1 hover:bg-muted ${className ?? ""}`}
+        className={`block cursor-pointer truncate rounded px-1 hover:bg-muted ${className ?? ""}`}
         onDoubleClick={() => {
           setDraft(value);
           setEditing(true);
         }}
+        title={value || undefined}
       >
         {value || "—"}
       </span>
@@ -99,6 +124,46 @@ function EditableCell({
   );
 }
 
+function ResizeHandle({
+  colKey,
+  baseWidth,
+  minWidth,
+  onResizeEnd,
+}: {
+  colKey: string;
+  baseWidth: number;
+  minWidth: number;
+  onResizeEnd: (width: number) => void;
+}) {
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const col = document.querySelector(`col[data-col="${colKey}"]`) as HTMLElement | null;
+      function onMouseMove(ev: MouseEvent) {
+        const w = Math.max(minWidth, baseWidth + (ev.clientX - startX));
+        if (col) col.style.width = `${w}px`;
+      }
+      function onMouseUp(ev: MouseEvent) {
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+        const finalW = Math.max(minWidth, baseWidth + (ev.clientX - startX));
+        onResizeEnd(finalW);
+      }
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    },
+    [colKey, baseWidth, minWidth, onResizeEnd],
+  );
+
+  return (
+    <div
+      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/30 active:bg-primary/50"
+      onMouseDown={handleMouseDown}
+    />
+  );
+}
+
 const SortableRow = memo(
   function SortableRow({
     track,
@@ -106,6 +171,7 @@ const SortableRow = memo(
     selected,
     duplicate,
     missing,
+    visibleColumns,
     onSelect,
     onUpdate,
     onRemove,
@@ -117,6 +183,7 @@ const SortableRow = memo(
     selected: boolean;
     duplicate: boolean;
     missing: boolean;
+    visibleColumns: ColumnKey[];
     onSelect: (index: number, shiftKey: boolean) => void;
     onUpdate: (index: number, field: keyof Track, value: string) => void;
     onRemove: (index: number) => void;
@@ -139,17 +206,17 @@ const SortableRow = memo(
     };
 
     return (
-      <TableRow
+      <tr
         ref={setNodeRef}
         style={style}
         data-selected={selected || undefined}
-        className={duplicate ? "bg-warning/10" : undefined}
+        className={`border-b text-sm ${duplicate ? "bg-warning/10" : ""} ${selected ? "bg-accent/50" : ""}`}
         onContextMenu={(e) => {
           e.preventDefault();
           onContextMenu(index, e.clientX, e.clientY);
         }}
       >
-        <TableCell className="px-1 w-8">
+        <td className="px-1 w-8">
           <button
             className="cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:bg-muted active:cursor-grabbing"
             {...attributes}
@@ -157,48 +224,67 @@ const SortableRow = memo(
           >
             <GripVertical className="h-4 w-4" />
           </button>
-        </TableCell>
-        <TableCell className="px-1 w-8">
+        </td>
+        <td className="px-1 w-8">
           <input
             type="checkbox"
             checked={selected}
             onChange={(e) => onSelect(index, e.nativeEvent instanceof MouseEvent && (e.nativeEvent as MouseEvent).shiftKey)}
             className="track-check"
           />
-        </TableCell>
-        <TableCell className="text-center text-muted-foreground w-12">
+        </td>
+        <td className="text-center text-muted-foreground w-10 px-1">
           {index + 1}
-        </TableCell>
-        <TableCell>
-          <EditableCell
-            value={track.title ?? ""}
-            onCommit={(v) => onUpdate(index, "title", v)}
-          />
-        </TableCell>
-        <TableCell>
-          <EditableCell
-            value={track.artist ?? ""}
-            onCommit={(v) => onUpdate(index, "artist", v)}
-          />
-        </TableCell>
-        <TableCell className="text-right w-24">
-          <EditableCell
-            value={formatDuration(track.duration)}
-            onCommit={(v) => onUpdate(index, "duration", v)}
-            className="text-right"
-          />
-        </TableCell>
-        <TableCell>
-          <EditableCell
-            value={track.path}
-            onCommit={(v) => onUpdate(index, "path", v)}
-            className={missing ? "text-destructive text-sm" : "text-muted-foreground text-sm"}
-          />
-          {missing && (
-            <span className="text-[10px] text-destructive">File not found</span>
-          )}
-        </TableCell>
-        <TableCell className="px-1 w-10">
+        </td>
+        {visibleColumns.map((col) => {
+          if (col === "title") {
+            return (
+              <td key="title" className="px-1 overflow-hidden">
+                <EditableCell
+                  value={track.title ?? ""}
+                  onCommit={(v) => onUpdate(index, "title", v)}
+                />
+              </td>
+            );
+          }
+          if (col === "artist") {
+            return (
+              <td key="artist" className="px-1 overflow-hidden">
+                <EditableCell
+                  value={track.artist ?? ""}
+                  onCommit={(v) => onUpdate(index, "artist", v)}
+                />
+              </td>
+            );
+          }
+          if (col === "duration") {
+            return (
+              <td key="duration" className="px-1 text-right overflow-hidden">
+                <EditableCell
+                  value={formatDuration(track.duration)}
+                  onCommit={(v) => onUpdate(index, "duration", v)}
+                  className="text-right"
+                />
+              </td>
+            );
+          }
+          if (col === "path") {
+            return (
+              <td key="path" className="px-1 overflow-hidden">
+                <EditableCell
+                  value={track.path}
+                  onCommit={(v) => onUpdate(index, "path", v)}
+                  className={missing ? "text-destructive text-sm" : "text-muted-foreground text-sm"}
+                />
+                {missing && (
+                  <span className="text-[10px] text-destructive">File not found</span>
+                )}
+              </td>
+            );
+          }
+          return null;
+        })}
+        <td className="px-1 w-8">
           <Button
             variant="ghost"
             size="icon-xs"
@@ -206,8 +292,8 @@ const SortableRow = memo(
           >
             <Trash2 className="h-3 w-3 text-destructive" />
           </Button>
-        </TableCell>
-      </TableRow>
+        </td>
+      </tr>
     );
   },
   (prev, next) =>
@@ -216,54 +302,26 @@ const SortableRow = memo(
     prev.duplicate === next.duplicate &&
     prev.missing === next.missing &&
     prev.id === next.id &&
+    prev.visibleColumns === next.visibleColumns &&
     prev.track.path === next.track.path &&
     prev.track.title === next.track.title &&
     prev.track.artist === next.track.artist &&
-    prev.track.duration === next.track.duration
+    prev.track.duration === next.track.duration,
 );
 
 interface TrackTableProps {
   tracks: Track[];
   filteredIndices: number[] | null;
   missingPaths: Set<number>;
+  columns: ColumnConfig[];
+  onToggleColumn: (key: ColumnKey) => void;
+  onResizeColumn: (key: ColumnKey, width: number) => void;
 }
 
 type SortKey = "title" | "artist" | "path";
 type SortDir = "asc" | "desc";
 
-function SortableHeader({
-  label,
-  sortKey,
-  currentKey,
-  currentDir,
-  onSort,
-}: {
-  label: string;
-  sortKey: SortKey;
-  currentKey: SortKey | null;
-  currentDir: SortDir;
-  onSort: (key: SortKey) => void;
-}) {
-  const active = currentKey === sortKey;
-  return (
-    <TableHead
-      className="cursor-pointer select-none hover:bg-muted/50"
-      onClick={() => onSort(sortKey)}
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {active &&
-          (currentDir === "asc" ? (
-            <ArrowUp className="h-3 w-3" />
-          ) : (
-            <ArrowDown className="h-3 w-3" />
-          ))}
-      </span>
-    </TableHead>
-  );
-}
-
-export function TrackTable({ tracks, filteredIndices, missingPaths }: TrackTableProps) {
+export function TrackTable({ tracks, filteredIndices, missingPaths, columns, onToggleColumn, onResizeColumn }: TrackTableProps) {
   const updateTrack = usePlaylistStore((s) => s.updateTrack);
   const removeTrack = usePlaylistStore((s) => s.removeTrack);
   const removeTracks = usePlaylistStore((s) => s.removeTracks);
@@ -277,6 +335,20 @@ export function TrackTable({ tracks, filteredIndices, missingPaths }: TrackTable
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [ctxMenu, setCtxMenu] = useState<{ index: number; x: number; y: number } | null>(null);
   const ctxRef = useRef<HTMLDivElement>(null);
+  const [colMenu, setColMenu] = useState(false);
+  const colMenuRef = useRef<HTMLDivElement>(null);
+
+  const visibleCols = useMemo(() => columns.filter((c) => c.visible), [columns]);
+  const prevVisibleKeysRef = useRef<ColumnKey[]>([]);
+  const visibleColKeys = useMemo(() => {
+    const keys = columns.filter((c) => c.visible).map((c) => c.key);
+    const prev = prevVisibleKeysRef.current;
+    if (keys.length === prev.length && keys.every((k, i) => k === prev[i])) {
+      return prev;
+    }
+    prevVisibleKeysRef.current = keys;
+    return keys;
+  }, [columns]);
 
   const handleSort = useCallback((key: SortKey) => {
     setSortKey((prevKey) => {
@@ -372,23 +444,8 @@ export function TrackTable({ tracks, filteredIndices, missingPaths }: TrackTable
     setCtxMenu({ index, x, y });
   }, []);
 
-  useEffect(() => {
-    if (!ctxMenu) return;
-    function close(e: MouseEvent) {
-      if (ctxRef.current && !ctxRef.current.contains(e.target as Node)) {
-        setCtxMenu(null);
-      }
-    }
-    function closeOnKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setCtxMenu(null);
-    }
-    window.addEventListener("mousedown", close);
-    window.addEventListener("keydown", closeOnKey);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("keydown", closeOnKey);
-    };
-  }, [ctxMenu]);
+  useClickOutside(ctxRef, !!ctxMenu, () => setCtxMenu(null), true);
+  useClickOutside(colMenuRef, colMenu, () => setColMenu(false));
 
   const ctxAction = useCallback((fn: () => void) => {
     fn();
@@ -416,6 +473,8 @@ export function TrackTable({ tracks, filteredIndices, missingPaths }: TrackTable
   const allSelected = visibleIndices.length > 0 && selection.size === visibleIndices.length;
   const someSelected = selection.size > 0;
 
+  const totalCols = 3 + visibleCols.length + 1;
+
   return (
     <div className="flex-1 overflow-auto">
       {someSelected && (
@@ -435,11 +494,20 @@ export function TrackTable({ tracks, filteredIndices, missingPaths }: TrackTable
         onDragEnd={handleDragEnd}
       >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8" />
-                <TableHead className="w-8 px-1">
+          <table className="track-table w-full table-fixed text-sm">
+            <colgroup>
+              <col style={{ width: 32 }} />
+              <col style={{ width: 32 }} />
+              <col style={{ width: 40 }} />
+              {visibleCols.map((c) => (
+                <col key={c.key} data-col={c.key} style={{ width: c.width }} />
+              ))}
+              <col style={{ width: 32 }} />
+            </colgroup>
+            <thead className="border-b bg-background sticky top-0 z-10">
+              <tr className="h-8 text-xs text-muted-foreground">
+                <th className="w-8 text-left" />
+                <th className="w-8 px-1 text-left">
                   <input
                     type="checkbox"
                     checked={allSelected}
@@ -449,16 +517,69 @@ export function TrackTable({ tracks, filteredIndices, missingPaths }: TrackTable
                     onChange={handleSelectAll}
                     className="track-check"
                   />
-                </TableHead>
-                <TableHead className="w-12 text-center">#</TableHead>
-                <SortableHeader label="Title" sortKey="title" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
-                <SortableHeader label="Artist" sortKey="artist" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
-                <TableHead className="w-24 text-right">Duration</TableHead>
-                <SortableHeader label="Path" sortKey="path" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+                </th>
+                <th className="w-10 text-center px-1">#</th>
+                {visibleCols.map((col) => {
+                  const isSortable = col.key === "title" || col.key === "artist" || col.key === "path";
+                  const isActive = sortKey === col.key;
+                  return (
+                    <th
+                      key={col.key}
+                      className={`relative px-1 text-left font-medium ${col.key === "duration" ? "text-right" : ""} ${isSortable ? "cursor-pointer select-none hover:bg-muted/50" : ""}`}
+                      onClick={isSortable ? () => handleSort(col.key as SortKey) : undefined}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {col.label}
+                        {isActive &&
+                          (sortDir === "asc" ? (
+                            <ArrowUp className="h-3 w-3" />
+                          ) : (
+                            <ArrowDown className="h-3 w-3" />
+                          ))}
+                      </span>
+                      <ResizeHandle
+                        colKey={col.key}
+                        baseWidth={col.width}
+                        minWidth={col.minWidth}
+                        onResizeEnd={(w) => onResizeColumn(col.key, w)}
+                      />
+                    </th>
+                  );
+                })}
+                <th className="w-8 px-1">
+                  <div className="relative">
+                    <button
+                      className="rounded p-0.5 text-muted-foreground hover:bg-muted"
+                      onClick={() => setColMenu((v) => !v)}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+                    {colMenu && (
+                      <div
+                        ref={colMenuRef}
+                        className="absolute right-0 top-full mt-1 z-50 min-w-[140px] rounded-lg border bg-popover p-1 text-popover-foreground shadow-md"
+                      >
+                        {columns.map((col) => (
+                          <button
+                            key={col.key}
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => onToggleColumn(col.key)}
+                          >
+                            {col.visible ? (
+                              <Eye className="h-3.5 w-3.5" />
+                            ) : (
+                              <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
+                            {col.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
               {visibleIndices.map((i) => (
                 <SortableRow
                   key={ids[i]}
@@ -468,6 +589,7 @@ export function TrackTable({ tracks, filteredIndices, missingPaths }: TrackTable
                   selected={selection.has(i)}
                   duplicate={duplicateIndices.has(i)}
                   missing={missingPaths.has(i)}
+                  visibleColumns={visibleColKeys}
                   onSelect={handleSelect}
                   onUpdate={handleUpdate}
                   onRemove={removeTrack}
@@ -475,14 +597,14 @@ export function TrackTable({ tracks, filteredIndices, missingPaths }: TrackTable
                 />
               ))}
               {isFiltering && visibleIndices.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <tr>
+                  <td colSpan={totalCols} className="text-center text-muted-foreground py-8">
                     No matching tracks
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               )}
-            </TableBody>
-          </Table>
+            </tbody>
+          </table>
         </SortableContext>
       </DndContext>
       {ctxMenu && (

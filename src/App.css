@@ -130,6 +130,10 @@
   html {
     @apply font-sans;
     }
+  .track-table th:not(:last-child),
+  .track-table td:not(:last-child) {
+    box-shadow: inset -1px 0 0 var(--border);
+  }
   input[type="checkbox"].track-check {
     appearance: none;
     width: 0.875rem;
