@@ -26,7 +26,7 @@ export function StatusBar({ useRelative, onTogglePathMode }: StatusBarProps) {
   }, [tracks]);
 
   return (
-    <footer className="flex h-7 items-center justify-between border-t px-4 text-xs text-muted-foreground">
+    <footer className="flex h-7 shrink-0 items-center justify-between border-t px-4 text-xs text-muted-foreground">
       <span>
         {tracks.length} {tracks.length === 1 ? "track" : "tracks"}
       </span>

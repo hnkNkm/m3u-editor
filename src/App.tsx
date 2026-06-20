@@ -51,7 +51,7 @@ function App() {
   const hasTracks = tracks.length > 0;
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-screen flex-col overflow-hidden">
       <Header useRelative={useRelative} />
       {hasTracks && <SearchBar value={search} onChange={setSearch} />}
       {hasTracks ? (

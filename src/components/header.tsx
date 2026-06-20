@@ -67,7 +67,7 @@ export function Header({ useRelative }: { useRelative: boolean }) {
 
   return (
     <TooltipProvider delay={400}>
-      <header className="flex h-12 items-center gap-1 border-b px-3">
+      <header className="flex h-12 shrink-0 items-center gap-1 border-b px-3 overflow-x-auto">
         <TipButton tip="New" shortcut="Ctrl+N" variant="ghost" size="sm" onClick={handleNew}>
           <FilePlus className="mr-1.5 h-4 w-4" />
           New

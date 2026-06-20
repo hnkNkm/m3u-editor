@@ -476,7 +476,7 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, columns, onT
   const totalCols = 3 + visibleCols.length + 1;
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex-1 overflow-auto min-h-0">
       {someSelected && (
         <div className="flex items-center gap-2 border-b bg-muted/50 px-4 py-1.5 text-sm">
           <span className="text-muted-foreground">
