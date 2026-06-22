@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { load } from "@tauri-apps/plugin-store";
 
 const STORE_KEY = "recent-files";
@@ -10,33 +10,67 @@ function getStore() {
   return storePromise;
 }
 
+let recentFilesCache: string[] = [];
+let loadRecentFilesPromise: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+
+function emit() {
+  listeners.forEach((listener) => listener());
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  void loadRecentFiles();
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function getSnapshot() {
+  return recentFilesCache;
+}
+
+async function loadRecentFiles() {
+  if (!loadRecentFilesPromise) {
+    loadRecentFilesPromise = getStore().then(async (store) => {
+      const files = await store.get<string[]>(STORE_KEY);
+      if (files) {
+        recentFilesCache = files;
+        emit();
+      }
+    });
+  }
+
+  return loadRecentFilesPromise;
+}
+
+async function saveRecentFiles(files: string[]) {
+  recentFilesCache = files;
+  emit();
+
+  const store = await getStore();
+  await store.set(STORE_KEY, files);
+  await store.save();
+}
+
 export function useRecentFiles() {
-  const [recentFiles, setRecentFiles] = useState<string[]>([]);
+  const recentFiles = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   useEffect(() => {
-    getStore().then(async (store) => {
-      const files = await store.get<string[]>(STORE_KEY);
-      if (files) setRecentFiles(files);
-    });
+    void loadRecentFiles();
   }, []);
 
   const addRecentFile = useCallback(async (filePath: string) => {
-    const store = await getStore();
-    const current = (await store.get<string[]>(STORE_KEY)) ?? [];
-    const updated = [filePath, ...current.filter((f) => f !== filePath)].slice(
-      0,
-      MAX_RECENT,
-    );
-    await store.set(STORE_KEY, updated);
-    await store.save();
-    setRecentFiles(updated);
+    await loadRecentFiles();
+    const updated = [
+      filePath,
+      ...recentFilesCache.filter((file) => file !== filePath),
+    ].slice(0, MAX_RECENT);
+    await saveRecentFiles(updated);
   }, []);
 
   const clearRecentFiles = useCallback(async () => {
-    const store = await getStore();
-    await store.set(STORE_KEY, []);
-    await store.save();
-    setRecentFiles([]);
+    await saveRecentFiles([]);
   }, []);
 
   return { recentFiles, addRecentFile, clearRecentFiles };
