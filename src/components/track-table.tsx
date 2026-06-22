@@ -351,16 +351,12 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, columns, onT
   }, [columns]);
 
   const handleSort = useCallback((key: SortKey) => {
-    setSortKey((prevKey) => {
-      setSortDir((prevDir) => {
-        const newDir = prevKey === key && prevDir === "asc" ? "desc" : "asc";
-        sortTracks(key, newDir);
-        return newDir;
-      });
-      return key;
-    });
+    const newDir: SortDir = sortKey === key && sortDir === "asc" ? "desc" : "asc";
+    setSortKey(key);
+    setSortDir(newDir);
+    sortTracks(key, newDir);
     usePlaylistStore.getState().setSelection(new Set());
-  }, [sortTracks]);
+  }, [sortKey, sortDir, sortTracks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
