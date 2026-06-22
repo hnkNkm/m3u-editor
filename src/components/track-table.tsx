@@ -351,16 +351,12 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, columns, onT
   }, [columns]);
 
   const handleSort = useCallback((key: SortKey) => {
-    setSortKey((prevKey) => {
-      setSortDir((prevDir) => {
-        const newDir = prevKey === key && prevDir === "asc" ? "desc" : "asc";
-        sortTracks(key, newDir);
-        return newDir;
-      });
-      return key;
-    });
+    const newDir: SortDir = sortKey === key && sortDir === "asc" ? "desc" : "asc";
+    setSortKey(key);
+    setSortDir(newDir);
+    sortTracks(key, newDir);
     usePlaylistStore.getState().setSelection(new Set());
-  }, [sortTracks]);
+  }, [sortKey, sortDir, sortTracks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -421,13 +417,17 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, columns, onT
     lastSelectedRef.current = null;
   }, [removeTracks]);
 
+  const idToIndex = useMemo(() => {
+    return new Map(ids.map((id, index) => [id, index]));
+  }, [ids]);
+
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const from = ids.indexOf(active.id as string);
-    const to = ids.indexOf(over.id as string);
-    if (from !== -1 && to !== -1) moveTrack(from, to);
-  }, [ids, moveTrack]);
+    const from = idToIndex.get(active.id as string);
+    const to = idToIndex.get(over.id as string);
+    if (from !== undefined && to !== undefined) moveTrack(from, to);
+  }, [idToIndex, moveTrack]);
 
   const handleUpdate = useCallback((index: number, field: keyof Track, value: string) => {
     const currentTracks = usePlaylistStore.getState().tracks;
@@ -452,23 +452,24 @@ export function TrackTable({ tracks, filteredIndices, missingPaths, columns, onT
     setCtxMenu(null);
   }, []);
 
-  const tracksPathsSerialized = JSON.stringify(tracks.map((t) => t.path));
   const duplicateIndices = useMemo(() => {
-    const paths: string[] = JSON.parse(tracksPathsSerialized);
     const pathCount = new Map<string, number[]>();
-    paths.forEach((path, i) => {
-      if (!path) return;
-      const key = path.toLowerCase();
+    tracks.forEach((track, i) => {
+      if (!track.path) return;
+      const key = track.path.toLowerCase();
       const list = pathCount.get(key);
       if (list) list.push(i);
       else pathCount.set(key, [i]);
     });
+
     const dupes = new Set<number>();
     for (const indices of pathCount.values()) {
-      if (indices.length > 1) indices.forEach((i) => dupes.add(i));
+      if (indices.length > 1) {
+        indices.forEach((i) => dupes.add(i));
+      }
     }
     return dupes;
-  }, [tracksPathsSerialized]);
+  }, [tracks]);
 
   const allSelected = visibleIndices.length > 0 && selection.size === visibleIndices.length;
   const someSelected = selection.size > 0;

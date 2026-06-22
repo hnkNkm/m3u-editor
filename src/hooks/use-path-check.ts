@@ -1,29 +1,31 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { Track } from "@/stores/playlist";
 
-export function usePathCheck(tracks: Track[]) {
+export function usePathCheck(paths: string[]) {
   const [missingPaths, setMissingPaths] = useState<Set<number>>(new Set());
+  const requestIdRef = useRef(0);
 
-  // Extract paths and serialize them to create a stable dependency
-  const pathsSerialized = JSON.stringify(tracks.map((t) => t.path));
+  const pathsSignature = useMemo(() => paths.join("\0"), [paths]);
 
   useEffect(() => {
-    const paths: string[] = JSON.parse(pathsSerialized);
-    const nonEmpty = paths.some((p) => p.length > 0);
-    if (!nonEmpty) {
+    const currentPaths = pathsSignature ? pathsSignature.split("\0") : [];
+    const requestId = ++requestIdRef.current;
+
+    if (!currentPaths.some((path) => path.length > 0)) {
       setMissingPaths(new Set());
       return;
     }
 
-    invoke<boolean[]>("check_paths", { paths }).then((results) => {
+    invoke<boolean[]>("check_paths", { paths: currentPaths }).then((results) => {
+      if (requestId !== requestIdRef.current) return;
+
       const missing = new Set<number>();
       results.forEach((exists, i) => {
-        if (paths[i] && !exists) missing.add(i);
+        if (currentPaths[i] && !exists) missing.add(i);
       });
       setMissingPaths(missing);
     });
-  }, [pathsSerialized]);
+  }, [pathsSignature]);
 
   return missingPaths;
 }
